@@ -4,6 +4,12 @@
 
 package dap4.cdmshared;
 
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import dap4.core.data.DataException;
 import dap4.core.dmr.AtomicType;
 import dap4.core.dmr.DapDimension;
@@ -22,13 +28,6 @@ import ucar.nc2.Dimension;
 import ucar.nc2.NetcdfFile;
 import ucar.nc2.Variable;
 import ucar.nc2.dataset.NetcdfDataset;
-
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * CDM related Constants and utilities
@@ -406,48 +405,6 @@ abstract public class CDMUtil
             break;
         }
         return 0;
-    }
-
-    /* Needed to implement Array.getElement() */
-    static public Class
-    cdmElementClass(DataType dt)
-    {
-        switch (dt) {
-        case BOOLEAN:
-            return boolean.class;
-        case ENUM1:
-        case BYTE:
-            return byte.class;
-        case CHAR:
-            return char.class;
-        case ENUM2:
-        case SHORT:
-            return short.class;
-        case ENUM4:
-        case INT:
-            return int.class;
-        case LONG:
-            return long.class;
-        case FLOAT:
-            return float.class;
-        case DOUBLE:
-            return double.class;
-        case STRING:
-            return String.class;
-        case OPAQUE:
-            return ByteBuffer.class;
-        case UBYTE:
-            return Byte.class;
-        case USHORT:
-            return Short.class;
-        case UINT:
-            return Integer.class;
-        case ULONG:
-            return Long.class;
-        default:
-            break;
-        }
-        return null;
     }
 
     /**

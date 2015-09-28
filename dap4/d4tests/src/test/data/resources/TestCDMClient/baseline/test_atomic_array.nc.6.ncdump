@@ -1,7 +1,6 @@
 netcdf test_atomic_array.nc {
   variables:
-    byte vu8(1, 2);
-      :_Unsigned = "true";
+    ubyte vu8(1, 2);
       :_FillValue = "255";
       :_DAP4_Checksum_CRC32 = "0xb0b19213";
 

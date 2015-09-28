@@ -4,6 +4,7 @@
 
 package dap4.servlet;
 
+import java.util.List;
 import dap4.cdmshared.CDMUtil;
 import dap4.core.data.DataAtomic;
 import dap4.core.data.DataException;
@@ -11,13 +12,15 @@ import dap4.core.dmr.AtomicType;
 import dap4.core.dmr.DapAtomicVariable;
 import dap4.core.dmr.DapType;
 import dap4.core.dmr.DapVariable;
-import dap4.core.util.*;
+import dap4.core.util.DapException;
+import dap4.core.util.DapSort;
+import dap4.core.util.DapUtil;
+import dap4.core.util.Odometer;
+import dap4.core.util.Slice;
 import dap4.dap4shared.AbstractDataVariable;
 import dap4.dap4shared.Dap4Util;
 import ucar.ma2.Array;
 import ucar.ma2.DataType;
-
-import java.util.List;
 
 
 public class CDMDataAtomic extends AbstractDataVariable
@@ -84,7 +87,7 @@ public class CDMDataAtomic extends AbstractDataVariable
         DataType datatype = CDMUtil.daptype2cdmtype(this.basetype);
         if(datatype == null)
             throw new DataException("Unknown basetype: " + this.basetype);
-        Class elementclass = CDMUtil.cdmElementClass(datatype);
+        Class elementclass = datatype.getPrimitiveClassType();
         if(elementclass == null)
             throw new DataException("Attempt to read non-atomic value of type: " + datatype);
         Object content = array.get1DJavaArray(elementclass); // not very efficient

@@ -4,14 +4,21 @@
 
 package   dap4.cdm;
 
-import dap4.core.dmr.*;
-import dap4.core.util.*;
-import dap4.cdmshared.CDMUtil;
-import dap4.dap4shared.*;
-import ucar.ma2.*;
-
 import java.io.IOException;
-import java.util.List;
+import dap4.cdmshared.CDMUtil;
+import dap4.core.dmr.AtomicType;
+import dap4.core.dmr.DapType;
+import dap4.core.dmr.DapVariable;
+import dap4.core.util.Convert;
+import dap4.core.util.DapUtil;
+import dap4.dap4shared.D4DSP;
+import dap4.dap4shared.D4DataAtomic;
+import dap4.dap4shared.DSP;
+import dap4.dap4shared.Dap4Util;
+import ucar.ma2.Array;
+import ucar.ma2.DataType;
+import ucar.ma2.Index;
+import ucar.ma2.IndexIterator;
 
 /**
  * CDMArrayAtomic wraps a D4DataAtomic object to present
@@ -175,7 +182,7 @@ public class CDMArrayAtomic extends Array implements CDMArray
         DataType dt = CDMUtil.daptype2cdmtype(this.basetype);
         if(dt == null)
             throw new IllegalArgumentException("Unknown datatype: "+this.basetype);
-        return CDMUtil.cdmElementClass(dt);
+        return dt.getPrimitiveClassType();
     }
 
     /**
