@@ -37,6 +37,7 @@ import javax.annotation.Nonnull;
 
 import ucar.nc2.constants.FeatureType;
 import ucar.nc2.ft.PointFeatureCC;
+import ucar.nc2.ft.PointFeatureCollection;
 import ucar.nc2.ft.PointFeatureIterator;
 import ucar.nc2.time.CalendarDateRange;
 import ucar.nc2.time.CalendarDateUnit;
@@ -85,7 +86,8 @@ public abstract class PointFeatureCCImpl extends DsgCollectionImpl implements Po
 
     @Override
     public PointFeatureIterator getPointFeatureIterator() throws IOException {
-      return new PointIteratorFlatten( from.getCollectionIterator(), filter_bb, filter_date);
+      PointFeatureCollection pointFeatCol = new FlattenedPointCollection(from);
+      return new PointIteratorFiltered(pointFeatCol.getPointFeatureIterator(), filter_bb, filter_date);
     }
   }
 }

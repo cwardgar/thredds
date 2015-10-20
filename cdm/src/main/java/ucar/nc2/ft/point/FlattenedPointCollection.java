@@ -1,8 +1,10 @@
 package ucar.nc2.ft.point;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+
 import ucar.nc2.ft.DsgFeatureCollection;
 import ucar.nc2.ft.FeatureDatasetPoint;
 import ucar.nc2.ft.PointFeature;
@@ -14,47 +16,57 @@ import ucar.nc2.time.CalendarDateUnit;
 import ucar.nc2.util.IOIterator;
 
 /**
- * An aggregate collection of all the PointFeatures in a dataset formed by flattening the nested structures within.
+ * A PointFeatureCollection formed by aggregating DsgFeatureCollections and flattening their nested structures.
  * This class's {@link #getPointFeatureIterator iterator} returns features in default order, with maximum read
  * efficiency as the goal.
  *
  * @author cwardgar
  * @since 2014/10/08
  */
-public class FlattenedDatasetPointCollection extends PointCollectionImpl {
-    private final FeatureDatasetPoint fdPoint;
+public class FlattenedPointCollection extends PointCollectionImpl {
+    private final List<DsgFeatureCollection> dsgFeatCols;
 
     /**
-     * Constructs a FlattenedDatasetPointCollection.
+     * Constructs a PointFeatureCollection by flattening {@code dsgFeatCol}. Collection metadata
+     * (i.e. {@link PointFeatureCollection#getName() name}, {@link PointFeatureCollection#getTimeUnit() timeUnit}, and
+     * {@link PointFeatureCollection#getAltUnits() altUnits}) are copied from {@code dsgFeatCol}.
      *
-     * @param fdPoint   a point dataset.
-     * @throws IllegalArgumentException if any of the feature collections in the dataset are not of type
-     *                                  {@code PointFeatureCollection} or {@code NestedPointFeatureCollection}.
+     * @param dsgFeatCol  a DsgFeatureCollection
      */
-    public FlattenedDatasetPointCollection(FeatureDatasetPoint fdPoint) throws IllegalArgumentException {
-        super(fdPoint.getLocation(), CalendarDateUnit.unixDateUnit, null);  // Default dateUnit and altUnits.
-        this.fdPoint = fdPoint;
+    public FlattenedPointCollection(DsgFeatureCollection dsgFeatCol) {
+        this(Collections.singletonList(dsgFeatCol));
+    }
 
-        List<DsgFeatureCollection> featCols = fdPoint.getPointFeatureCollectionList();
+    /**
+     * Constructs a PointFeatureCollection that is the flattened aggregate of {@code dsgFeatCols}. Collection
+     * metadata (i.e. {@link PointFeatureCollection#getName() name}, {@link PointFeatureCollection#getTimeUnit()
+     * timeUnit}, and {@link PointFeatureCollection#getAltUnits() altUnits}) are copied from the first collection in
+     * the list.
+     *
+     * @param dsgFeatCols  a list of DsgFeatureCollections
+     * @see ucar.nc2.ft.FeatureDatasetPoint#getPointFeatureCollectionList()
+     */
+    public FlattenedPointCollection(List<DsgFeatureCollection> dsgFeatCols) {
+        super("FlattenedPointCollection", CalendarDateUnit.unixDateUnit, null);  // Temporary values.
+        this.dsgFeatCols = dsgFeatCols;
 
-        if (!featCols.isEmpty()) {
-            DsgFeatureCollection firstFeatCol = featCols.get(0);
-
-            // Replace this.dateUnit, this.altUnits, and this.extras with "typical" values from firstFeatCol.
-            // We can't be certain that those values are representative of ALL collections in the dataset, but it's
-            // a decent bet because in practice, firstFeatCol is so often the ONLY collection.
-            copyFieldsFrom(firstFeatCol);
+        // Replace this.name, this.dateUnit, and this.altUnits with "typical" values from the first collection.
+        // We can't be certain that those values are representative of ALL collections in dsgFeatCols, but it's
+        // a decent bet because in practice, the first collection is often the ONLY collection.
+        if (!dsgFeatCols.isEmpty()) {
+            copyFieldsFrom(dsgFeatCols.get(0));
         }
     }
 
     private void copyFieldsFrom(DsgFeatureCollection featCol) {
+        this.name = "Flattened-" + featCol.getName();
         this.timeUnit = featCol.getTimeUnit();
         this.altUnits = featCol.getAltUnits();
     }
 
     @Override
     public PointFeatureIterator getPointFeatureIterator() throws IOException {
-        return new FlattenedDatasetPointIterator(fdPoint);
+        return new FlattenedDatasetPointIterator(dsgFeatCols);
     }
 
 
@@ -67,9 +79,9 @@ public class FlattenedDatasetPointCollection extends PointCollectionImpl {
 
         private boolean finished = false;  // set to "true" when close() is called.
 
-        public FlattenedDatasetPointIterator(FeatureDatasetPoint fdPoint) {
-            this.dsgFeatColIter = fdPoint.getPointFeatureCollectionList().iterator();
-            setCalculateBounds(FlattenedDatasetPointCollection.this.getInfo());
+        public FlattenedDatasetPointIterator(Iterable<DsgFeatureCollection> dsgFeatColIterable) {
+            this.dsgFeatColIter = dsgFeatColIterable.iterator();
+            setCalculateBounds(FlattenedPointCollection.this.getInfo());
         }
 
         @Override

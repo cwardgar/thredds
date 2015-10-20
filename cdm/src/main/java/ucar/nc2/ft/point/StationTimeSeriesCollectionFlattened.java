@@ -36,6 +36,7 @@ package ucar.nc2.ft.point;
 import java.io.IOException;
 import javax.annotation.Nonnull;
 
+import ucar.nc2.ft.PointFeatureCollection;
 import ucar.nc2.ft.PointFeatureIterator;
 import ucar.nc2.time.CalendarDateRange;
 
@@ -60,7 +61,8 @@ public class StationTimeSeriesCollectionFlattened extends PointCollectionImpl {
   @Override
   @Nonnull
   public PointFeatureIterator getPointFeatureIterator() throws IOException {
-    return new PointIteratorFlatten( from.getPointFeatureCollectionIterator(), null, this.getCalendarDateRange());
+    PointFeatureCollection pointFeatCol = new FlattenedPointCollection(from);
+    return new PointIteratorFiltered(pointFeatCol.getPointFeatureIterator(), null, this.getCalendarDateRange());
   }
 
 }

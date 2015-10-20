@@ -33,15 +33,16 @@
  */
 package ucar.nc2.ft.point;
 
+import java.util.ArrayList;
+import java.util.List;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import com.google.common.base.Preconditions;
 import ucar.nc2.Variable;
 import ucar.nc2.ft.DsgFeatureCollection;
 import ucar.nc2.time.CalendarDateRange;
 import ucar.nc2.time.CalendarDateUnit;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Common methods for DsgFeatureCollection.
@@ -58,8 +59,8 @@ public abstract class DsgCollectionImpl implements DsgFeatureCollection {
   protected List<Variable> extras; // variables needed to make CF/DSG writing work
 
   protected DsgCollectionImpl(String name, CalendarDateUnit timeUnit, String altUnits) {
-    this.name = name;
-    this.timeUnit = timeUnit;
+    this.name = Preconditions.checkNotNull(name);          // Enforce Nonnull annotation.
+    this.timeUnit = Preconditions.checkNotNull(timeUnit);  // Ditto
     this.altUnits = altUnits;
   }
 

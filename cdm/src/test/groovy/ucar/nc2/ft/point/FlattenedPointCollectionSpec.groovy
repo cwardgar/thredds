@@ -1,4 +1,5 @@
 package ucar.nc2.ft.point
+
 import spock.lang.Specification
 import ucar.nc2.constants.FeatureType
 import ucar.nc2.ft.DsgFeatureCollection
@@ -12,20 +13,22 @@ import ucar.nc2.time.CalendarDateUnit
 import ucar.unidata.geoloc.EarthLocationImpl
 import ucar.unidata.geoloc.LatLonPointImpl
 import ucar.unidata.geoloc.LatLonRect
+
 /**
  * @author cwardgar
  * @since 2015/06/26
  */
-class FlattenedDatasetPointCollectionSpec extends Specification {
+class FlattenedPointCollectionSpec extends Specification {
     // FDP used in all feature methods. Its getPointFeatureCollectionList() method will be stubbed to return
     // different collections per test.
     def fdPoint = Mock(FeatureDatasetPoint)
 
+    CalendarDateUnit dateUnit = CalendarDateUnit.unixDateUnit
     PointFeature pf1, pf2, pf3, pf4, pf5, pf6, pf7, pf8, pf9
 
     def setup() {   // run before every feature method
         setup: "create point features"
-        CalendarDateUnit dateUnit = CalendarDateUnit.of(null, "days since 1970-01-01 00:00:00")
+        dateUnit = CalendarDateUnit.of(null, "days since 1970-01-01 00:00:00")
         DsgFeatureCollection dummyDsg = new SimplePointFeatureCollection("dummy", dateUnit, "m")
 
         pf1 = makePointFeat(dummyDsg, -75, -70,  630,   23,  dateUnit)
@@ -52,7 +55,7 @@ class FlattenedDatasetPointCollectionSpec extends Specification {
         fdPoint.getPointFeatureCollectionList() >> []
 
         when: "we construct a FlattenedDatasetPointCollection using our exmpty FeatureDatasetPoint"
-        def flattenedDatasetCol = new FlattenedDatasetPointCollection(fdPoint);
+        def flattenedDatasetCol = new FlattenedPointCollection(fdPoint.pointFeatureCollectionList);
 
         then: "the default unitsString and altUnits are used"
         flattenedDatasetCol.timeUnit.udUnit == CalendarDateUnit.unixDateUnit.udUnit
@@ -81,7 +84,7 @@ class FlattenedDatasetPointCollectionSpec extends Specification {
         fdPoint.getPointFeatureCollectionList() >> [pointFeatColAlpha, pointFeatColBeta, pointFeatColGamma]
 
         when: "we flatten our dataset containing 3 collections into one collection"
-        def flattenedDatasetCol = new FlattenedDatasetPointCollection(fdPoint);
+        def flattenedDatasetCol = new FlattenedPointCollection(fdPoint.pointFeatureCollectionList);
 
         then: "flattenedDatasetCol metadata objects are same as pointFeatColAlpha's"
         flattenedDatasetCol.timeUnit.is pointFeatColAlpha.timeUnit
@@ -90,16 +93,16 @@ class FlattenedDatasetPointCollectionSpec extends Specification {
 
     def "all kinds of empty"() {
         setup: "create an empty instance of each of the DsgFeatureCollection types"
-        PointFeatureCollection emptyC   = new SimplePointFeatureCollection("emptyC", null, "m")
-        PointFeatureCC         emptyCC  = new SimplePointFeatureCC("emptyCC", null, "y", FeatureType.POINT)
-        PointFeatureCCC        emptyCCC = new SimplePointFeatureCCC("emptyCCC", null, "in", FeatureType.POINT)
+        PointFeatureCollection emptyC   = new SimplePointFeatureCollection("emptyC", dateUnit, "m")
+        PointFeatureCC         emptyCC  = new SimplePointFeatureCC("emptyCC", dateUnit, "y", FeatureType.POINT)
+        PointFeatureCCC        emptyCCC = new SimplePointFeatureCCC("emptyCCC", dateUnit, "in", FeatureType.POINT)
 
         and: "create a non-empty PointFeatureCC that contains an empty PointFeatureCollection"
-        PointFeatureCC nonEmptyCC = new SimplePointFeatureCC("nonEmptyCC", null, "y", FeatureType.POINT)
+        PointFeatureCC nonEmptyCC = new SimplePointFeatureCC("nonEmptyCC", dateUnit, "y", FeatureType.POINT)
         nonEmptyCC.add(emptyC)
 
         and: "create a non-empty PointFeatureCCC that contains both an empty and non-empty PointFeatureCC"
-        PointFeatureCCC nonEmptyCCC = new SimplePointFeatureCCC("nonEmptyCCC", null, "in", FeatureType.POINT)
+        PointFeatureCCC nonEmptyCCC = new SimplePointFeatureCCC("nonEmptyCCC", dateUnit, "in", FeatureType.POINT)
         nonEmptyCCC.add(emptyCC)
         nonEmptyCCC.add(nonEmptyCC)
 
@@ -109,7 +112,8 @@ class FlattenedDatasetPointCollectionSpec extends Specification {
         ]
 
         and: "create flattened collection from our mocked dataset"
-        FlattenedDatasetPointCollection flattenedDatasetCol = new FlattenedDatasetPointCollection(fdPoint)
+        FlattenedPointCollection flattenedDatasetCol =
+                new FlattenedPointCollection(fdPoint.pointFeatureCollectionList)
 
         expect: "collection contains no PointFeatures"
         flattenedDatasetCol.asList().isEmpty()
@@ -117,39 +121,39 @@ class FlattenedDatasetPointCollectionSpec extends Specification {
 
     def "multiple DsgFeatureCollection types in one FeatureDataset"() {
         setup: "create PointFeatureCollections"
-        PointFeatureCollection pfc1 = new SimplePointFeatureCollection("pfc1", null, "m")
+        PointFeatureCollection pfc1 = new SimplePointFeatureCollection("pfc1", dateUnit, "m")
         pfc1.add(pf1);
 
-        PointFeatureCollection pfc2 = new SimplePointFeatureCollection("pfc2", null, "m")
+        PointFeatureCollection pfc2 = new SimplePointFeatureCollection("pfc2", dateUnit, "m")
         pfc2.add(pf2)
         pfc2.add(pf3)
 
-        PointFeatureCollection pfc3 = new SimplePointFeatureCollection("pfc3", null, "m")
+        PointFeatureCollection pfc3 = new SimplePointFeatureCollection("pfc3", dateUnit, "m")
 
-        PointFeatureCollection pfc4 = new SimplePointFeatureCollection("pfc4", null, "m")
+        PointFeatureCollection pfc4 = new SimplePointFeatureCollection("pfc4", dateUnit, "m")
         pfc4.add(pf4)
 
-        PointFeatureCollection pfc5 = new SimplePointFeatureCollection("pfc5", null, "m")
+        PointFeatureCollection pfc5 = new SimplePointFeatureCollection("pfc5", dateUnit, "m")
         pfc5.add(pf5)
         pfc5.add(pf6)
         pfc5.add(pf7)
 
-        PointFeatureCollection pfc6 = new SimplePointFeatureCollection("pfc6", null, "m")
+        PointFeatureCollection pfc6 = new SimplePointFeatureCollection("pfc6", dateUnit, "m")
         pfc6.add(pf8)
 
-        PointFeatureCollection pfc7 = new SimplePointFeatureCollection("pfc7", null, "m")
+        PointFeatureCollection pfc7 = new SimplePointFeatureCollection("pfc7", dateUnit, "m")
         pfc7.add(pf9)
 
         and: "create PointFeatureCCs"
-        PointFeatureCC pfcc1 = new SimplePointFeatureCC("pfcc1", null, "m", FeatureType.POINT)
+        PointFeatureCC pfcc1 = new SimplePointFeatureCC("pfcc1", dateUnit, "m", FeatureType.POINT)
         pfcc1.add(pfc1)
         pfcc1.add(pfc2)
 
-        PointFeatureCC pfcc2 = new SimplePointFeatureCC("pfcc2", null, "m", FeatureType.POINT)
+        PointFeatureCC pfcc2 = new SimplePointFeatureCC("pfcc2", dateUnit, "m", FeatureType.POINT)
         pfcc2.add(pfc3)
         pfcc2.add(pfc4)
 
-        PointFeatureCC pfcc3 = new SimplePointFeatureCC("pfcc3", null, "m", FeatureType.POINT)
+        PointFeatureCC pfcc3 = new SimplePointFeatureCC("pfcc3", dateUnit, "m", FeatureType.POINT)
         pfcc3.add(pfc6)
         pfcc3.add(pfc7)
 
@@ -161,7 +165,8 @@ class FlattenedDatasetPointCollectionSpec extends Specification {
 
         and: "mock FeatureDatasetPoint to return 1 of each DsgFeatureCollection instance, then flatten it"
         fdPoint.getPointFeatureCollectionList() >> [pfccc, pfc5, pfcc3]
-        FlattenedDatasetPointCollection flattenedDatasetCol = new FlattenedDatasetPointCollection(fdPoint)
+        FlattenedPointCollection flattenedDatasetCol =
+                new FlattenedPointCollection(fdPoint.pointFeatureCollectionList)
 
 
         expect: "before iterating over the collection, bounds are null"

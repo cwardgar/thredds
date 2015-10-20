@@ -38,9 +38,9 @@ class PointIteratorFilteredSpec extends Specification {
         CalendarDateRange filter_date = CalendarDateRange.of(start, end)
 
         and: "filtered point iterator"
-        PointFeatureCollection flattenedDatasetCol = new FlattenedDatasetPointCollection(fdPoint)
-        PointFeatureIterator pointIterOrig = flattenedDatasetCol.getPointFeatureIterator()
-        PointFeatureIterator pointIterFiltered = new PointIteratorFiltered(pointIterOrig, filter_bb, filter_date)
+        PointFeatureCollection flattenedDatasetCol = new FlattenedPointCollection(fdPoint.pointFeatureCollectionList);
+        PointFeatureIterator pointIterOrig = flattenedDatasetCol.getPointFeatureIterator();
+        PointFeatureIterator pointIterFiltered = new PointIteratorFiltered(pointIterOrig, filter_bb, filter_date);
 
         expect:
         getIdsOfPoints(pointIterFiltered) == ['BBB', 'EEE']

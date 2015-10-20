@@ -7,7 +7,7 @@ import ucar.nc2.constants.FeatureType
 import ucar.nc2.ft.FeatureDatasetFactoryManager
 import ucar.nc2.ft.FeatureDatasetPoint
 import ucar.nc2.ft.PointFeatureCollection
-import ucar.nc2.ft.point.FlattenedDatasetPointCollection
+import ucar.nc2.ft.point.FlattenedPointCollection
 import ucar.nc2.ft.point.PointTestUtil
 import ucar.unidata.util.test.TestDir
 
@@ -27,7 +27,7 @@ class PointStreamSpec extends Specification {
                 (FeatureDatasetPoint) FeatureDatasetFactoryManager.open(FeatureType.ANY_POINT, location, null)
 
         when:
-        PointFeatureCollection origPointCol = new FlattenedDatasetPointCollection(fdPoint);
+        PointFeatureCollection origPointCol = new FlattenedPointCollection(fdPoint.pointFeatureCollectionList);
         PointStream.write(origPointCol, outFile);
         PointFeatureCollection roundTrippedPointCol = new PointCollectionStreamLocal(outFile);
 

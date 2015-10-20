@@ -33,6 +33,7 @@
 package ucar.nc2.ft.point;
 
 import java.util.NoSuchElementException;
+
 import com.google.common.base.Preconditions;
 import ucar.nc2.ft.PointFeature;
 import ucar.nc2.ft.PointFeatureIterator;
@@ -41,6 +42,7 @@ import ucar.unidata.geoloc.LatLonRect;
 
 /**
  * Decorate a PointFeatureIterator with filtering.
+ *
  * @author caron
  * @since Mar 20, 2008
  */
@@ -58,11 +60,11 @@ public class PointIteratorFiltered extends PointIteratorAbstract {
         this.origIter = Preconditions.checkNotNull(origIter);
         this.filter = Preconditions.checkNotNull(filter);
     }
-    
+
     /**
      * Returns {@code true} if the iteration has more elements. (In other words, returns {@code true} if {@link #next}
      * would return an element rather than throwing an exception.)
-     * <p/>
+     * <p>
      * This method is <i>idempotent</i>, meaning that when it is called repeatedly without an intervening
      * {@link #next}, calls after the first will have no effect.
      *
@@ -74,7 +76,7 @@ public class PointIteratorFiltered extends PointIteratorAbstract {
         if (pointFeature != null) {
             return true;  // pointFeature hasn't yet been consumed.
         }
-        
+
         pointFeature = nextFilteredDataPoint();
         if (pointFeature == null) {
             close();
@@ -83,31 +85,31 @@ public class PointIteratorFiltered extends PointIteratorAbstract {
             return true;
         }
     }
-  
-  /**
-   * Returns the next element in the iteration.
-   *
-   * @return the next element in the iteration
-   * @throws java.util.NoSuchElementException if the iteration has no more elements.
-   */
-  // PointFeatureIterator.next() doesn't actually specify the behavior of next() when there are no more elements,
-  // but we can define a stronger contract.
-  @Override
-  public PointFeature next() throws NoSuchElementException {
-    if (!hasNext()) {
-      throw new NoSuchElementException("This iterator has no more elements.");
+
+    /**
+     * Returns the next element in the iteration.
+     *
+     * @return the next element in the iteration
+     * @throws java.util.NoSuchElementException if the iteration has no more elements.
+     */
+    // PointFeatureIterator.next() doesn't actually specify the behavior of next() when there are no more elements,
+    // but we can define a stronger contract.
+    @Override
+    public PointFeature next() throws NoSuchElementException {
+        if (!hasNext()) {
+            throw new NoSuchElementException("This iterator has no more elements.");
+        }
+
+        assert pointFeature != null;
+        PointFeature ret = pointFeature;
+        calcBounds(ret);
+
+        pointFeature = null;  // Feature has been consumed.
+        return ret;
     }
-    
-    assert pointFeature != null;
-    PointFeature ret = pointFeature;
-    calcBounds(ret);
-    
-    pointFeature = null;  // Feature has been consumed.
-    return ret;
-  }
-  
-  @Override
-  public void close() {
+
+    @Override
+    public void close() {
         origIter.close();
         finishCalcBounds();
     }
@@ -137,25 +139,27 @@ public class PointIteratorFiltered extends PointIteratorAbstract {
         private final LatLonRect filter_bb;
         private final CalendarDateRange filter_date;
 
-      /**
-       * @param filter_bb bounding box or null for all
-       * @param filter_date date Range or null for all
-       */
+        /**
+         * @param filter_bb   bounding box or null for all
+         * @param filter_date date Range or null for all
+         */
         public SpaceAndTimeFilter(LatLonRect filter_bb, CalendarDateRange filter_date) {
-          this.filter_bb = filter_bb;
-          this.filter_date = filter_date;
+            this.filter_bb = filter_bb;
+            this.filter_date = filter_date;
         }
 
         @Override
         public boolean filter(PointFeature pointFeat) {
-          if ((filter_date != null) && !filter_date.includes(pointFeat.getObservationTimeAsCalendarDate()))
-            return false;
+            if ((filter_date != null) && !filter_date.includes(pointFeat.getObservationTimeAsCalendarDate())) {
+                return false;
+            }
 
-          if ((filter_bb != null) && !filter_bb.contains(pointFeat.getLocation().getLatitude(), pointFeat.getLocation().getLongitude()))
-            return false;
+            if ((filter_bb != null) && !filter_bb.contains(
+                    pointFeat.getLocation().getLatitude(), pointFeat.getLocation().getLongitude())) {
+                return false;
+            }
 
-          return true;
+            return true;
         }
     }
-
 }
