@@ -32,7 +32,7 @@ class PointStreamSpec extends Specification {
         PointFeatureCollection roundTrippedPointCol = new PointCollectionStreamLocal(outFile);
 
         then:
-        PointTestUtil.equals(origPointCol, roundTrippedPointCol)
+        PointTestUtil.assertEquals(origPointCol, roundTrippedPointCol)
 
         cleanup:
         fdPoint.close()

@@ -153,7 +153,6 @@ public final class StructureMembers {
     return members;
   }
 
-
   /**
    * Get the names of the members.
    *

@@ -57,8 +57,7 @@ public class SortingStationPointFeatureCacheTest {
         }
         
         Collections.reverse(spfList);
-        Assert.assertTrue(
-                PointTestUtil.equals(new PointIteratorAdapter(spfList.iterator()), cache.getPointFeatureIterator()));
+        PointTestUtil.assertEquals(new PointIteratorAdapter(spfList.iterator()), cache.getPointFeatureIterator());
     }
 
     private static StationPointFeature makeStationPointFeature(DsgFeatureCollection dsg,
@@ -111,7 +110,7 @@ public class SortingStationPointFeatureCacheTest {
             PointFeatureIterator pointIterExpected =
                     new FlattenedPointCollection(fdExpected.getPointFeatureCollectionList()).getPointFeatureIterator();
             PointFeatureIterator pointIterActual = cache.getPointFeatureIterator();
-            Assert.assertTrue(PointTestUtil.equals(pointIterExpected, pointIterActual));
+            PointTestUtil.assertEquals(pointIterExpected, pointIterActual);
         }
     }
 }

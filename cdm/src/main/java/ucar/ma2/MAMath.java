@@ -33,7 +33,7 @@
 package ucar.ma2;
 
 import java.util.Arrays;
-import java.util.Objects;
+
 import ucar.nc2.util.Misc;
 
 /**
@@ -788,7 +788,6 @@ public class MAMath {
    * @return true if the specified arrays have the same data type, shape, and equal corresponding elements.
    * @see <a href=http://goo.gl/psfLb>Is there a way to get a hashcode of a float with epsilon? - Stack Overflow</a>
    */
-  // TODO: Should we add this to Array as the Object.equals() implementation? How much work is that?
   public static boolean equals(Array array1, Array array2) {
     if (array1 == array2) {  // Covers case when both are null.
       return true;
@@ -837,43 +836,47 @@ public class MAMath {
 
     IndexIterator iter1 = array1.getIndexIterator();
     IndexIterator iter2 = array2.getIndexIterator();
+    DataType dt = array1.getDataType();
 
-    while (iter1.hasNext() && iter2.hasNext()) {
-      if (!Objects.equals(iter1.next(), iter2.next())) {
-        return false;
+    if (dt == DataType.DOUBLE) {
+      while (iter1.hasNext() && iter2.hasNext()) {
+        if (iter1.getIntNext() != iter2.getIntNext()) {
+          return false;
+        }
       }
-      if (!Arrays.equals(iter1.getCurrentCounter(), iter2.getCurrentCounter())) {
-        return false;
+    } else if (dt == DataType.FLOAT) {
+      while (iter1.hasNext() && iter2.hasNext()) {
+        if (iter1.getFloatNext() != iter2.getFloatNext()) {
+          return false;
+        }
+      }
+    } else if (dt.getPrimitiveClassType() == int.class) {
+      while (iter1.hasNext() && iter2.hasNext()) {
+        if (iter1.getIntNext() != iter2.getIntNext()) {
+          return false;
+        }
+      }
+    } else if (dt.getPrimitiveClassType() == byte.class) {
+      while (iter1.hasNext() && iter2.hasNext()) {
+        if (iter1.getShortNext() != iter2.getShortNext()) {
+          return false;
+        }
+      }
+    } else if (dt.getPrimitiveClassType() == short.class) {
+      while (iter1.hasNext() && iter2.hasNext()) {
+        if (iter1.getByteNext() != iter2.getByteNext()) {
+          return false;
+        }
+      }
+    } else if (dt.getPrimitiveClassType() == long.class) {
+      while (iter1.hasNext() && iter2.hasNext()) {
+        if (iter1.getLongNext() != iter2.getLongNext()) {
+          return false;
+        }
       }
     }
 
     assert !iter1.hasNext() && !iter2.hasNext();    // Iterators ought to be the same length.
     return true;
-  }
-
-  /**
-   * An implementation of {@link Object#hashCode} that is consistent with {@link #equals(Array, Array)}.
-   *
-   * @param array an array to hash.
-   * @return a hash code value for the array.
-   */
-  // TODO: Should we add this to Array as the Object.hashCode() implementation? How much work is that?
-  public static int hashCode(Array array) {
-    if (array == null) {
-      return 0;
-    }
-
-    int hash = 3;
-    hash = 29 * hash + array.getDataType().hashCode();
-    hash = 29 * hash + Arrays.hashCode(array.getShape());
-
-    // We can't simply hash array.getStorage(), because array may be a "view" that doesn't include all of the
-    // elements in the backing store.
-    for (IndexIterator iter = array.getIndexIterator(); iter.hasNext(); ) {
-      hash = 29 * hash + iter.next().hashCode();
-      hash = 29 * hash + Arrays.hashCode(iter.getCurrentCounter());
-    }
-
-    return hash;
   }
 }
