@@ -32,12 +32,13 @@
  */
 package ucar.nc2.time;
 
-import net.jcip.annotations.Immutable;
-
 import java.util.Date;
 import java.util.Formatter;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import net.jcip.annotations.Immutable;
 
 /**
  * A Calendar Date Unit: "unit since date"
@@ -233,6 +234,27 @@ public class CalendarDateUnit {
   // testing
   Date getBaseDate() {
     return baseDate.toDate();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    CalendarDateUnit that = (CalendarDateUnit) o;
+    return Objects.equals(isCalendarField, that.isCalendarField) &&
+            Objects.equals(cal, that.cal) &&
+            Objects.equals(period, that.period) &&
+            Objects.equals(periodField, that.periodField) &&
+            Objects.equals(baseDate, that.baseDate);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(cal, period, periodField, baseDate, isCalendarField);
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////

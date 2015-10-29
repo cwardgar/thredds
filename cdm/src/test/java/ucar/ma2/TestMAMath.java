@@ -34,10 +34,11 @@ package ucar.ma2;
 
 import java.io.IOException;
 import java.util.List;
+
 import com.google.common.collect.Lists;
 import org.junit.Before;
 import org.junit.Test;
-import static org.junit.Assert.assertEquals;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
@@ -269,14 +270,5 @@ public class TestMAMath {
     assertNotEquals(indexX, indexY);
     assertNotEquals(indexX, indexZ);
     assertNotEquals(indexY, indexZ);
-
-
-    // hashCode
-    assertEquals(MAMath.hashCode(arrayX),MAMath.hashCode(arrayY));
-    assertEquals(MAMath.hashCode(arrayY), MAMath.hashCode(arrayZ));
-    assertEquals(MAMath.hashCode(arrayX), MAMath.hashCode(arrayZ));
-
-    // Null
-    assertEquals(0, MAMath.hashCode(null));
   }
 }
