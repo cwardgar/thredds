@@ -65,7 +65,17 @@ class PointTestUtil {
         // e.g. Table/NestedTable vs PointStreamProto. Ultimately, we don't care; it's just an implementation detail.
     }
 
-    static void assertEquals(PointFeatureIterator iter1, PointFeatureIterator iter2) throws IOException {
+    static void assertIterablesEquals(Iterable<PointFeature> iterable1, Iterable<PointFeature> iterable2)
+            throws IOException {
+        if (iterable1.is(iterable2)) {
+            return
+        }
+
+        assert iterable1 && iterable2
+        assertEquals iterable1.iterator(), iterable2.iterator()
+    }
+
+    static void assertEquals(Iterator<PointFeature> iter1, Iterator<PointFeature> iter2) throws IOException {
         if (iter1.is(iter2)) {
             return
         }
