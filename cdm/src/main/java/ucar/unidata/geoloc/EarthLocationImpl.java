@@ -32,6 +32,8 @@
  */
 package ucar.unidata.geoloc;
 
+import com.google.common.base.MoreObjects;
+
 /**
  * A location on the Earth.
  *
@@ -66,7 +68,12 @@ public class EarthLocationImpl implements EarthLocation {
   protected void setLongitude(double lon) { this.lon = lon; }
   protected void setAltitude(double alt) { this.alt = alt; }
 
-  public String toString() { return "lat="+lat+" lon="+lon+" alt="+alt; }
-
-
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+            .add("lat", lat)
+            .add("lon", lon)
+            .add("alt", alt)
+            .toString();
+  }
 }

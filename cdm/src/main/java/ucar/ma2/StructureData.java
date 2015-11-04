@@ -32,6 +32,7 @@
  */
 package ucar.ma2;
 
+import com.google.common.base.MoreObjects;
 import ucar.nc2.util.Indent;
 
 import java.util.Formatter;
@@ -685,7 +686,12 @@ abstract public class StructureData {
   }
 
    public String toString() {
-    return members.toString();
-  }
+     MoreObjects.ToStringHelper toStringHelper = MoreObjects.toStringHelper(this);
 
+     for (StructureMembers.Member member : getMembers()) {
+       toStringHelper.add(member.getName(), getArray(member));
+     }
+
+     return toStringHelper.toString();
+  }
 }

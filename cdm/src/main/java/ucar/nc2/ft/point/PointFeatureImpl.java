@@ -32,14 +32,16 @@
  */
 package ucar.nc2.ft.point;
 
-import javax.annotation.Nonnull;
-
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import ucar.nc2.ft.DsgFeatureCollection;
 import ucar.nc2.ft.PointFeature;
 import ucar.nc2.time.CalendarDate;
 import ucar.nc2.time.CalendarDateUnit;
 import ucar.unidata.geoloc.EarthLocation;
+
+import javax.annotation.Nonnull;
+import java.io.IOException;
 
 /**
  * Abstract superclass for implementations of PointFeature.
@@ -108,11 +110,18 @@ public abstract class PointFeatureImpl implements PointFeature, Comparable<Point
 
   @Override
   public String toString() {
-    return "PointFeatureImpl{" +
-        "location=" + location +
-        ", obsTime=" + obsTime +
-        ", nomTime=" + nomTime +
-        ", timeUnit=" + timeUnit +
-        '}';
+    MoreObjects.ToStringHelper toStringHelper = MoreObjects.toStringHelper(this);
+    toStringHelper.add("location", getLocation());
+    toStringHelper.add("obsTime", getObservationTime());
+    toStringHelper.add("nomTime", getNominalTime());
+    toStringHelper.add("timeUnit", timeUnit);
+
+    try {
+      toStringHelper.add("featureData", String.valueOf(getFeatureData()));
+    } catch (IOException e) {
+      toStringHelper.add("featureData", "IOException");
+    }
+
+    return toStringHelper.toString();
   }
 }

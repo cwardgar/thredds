@@ -1162,6 +1162,8 @@ public abstract class Array {
       sbuff.append(data);
       sbuff.append(" ");
     }
+
+    sbuff.deleteCharAt(sbuff.length() - 1);  // Nuke trailing space.
     return sbuff.toString();
   }
 

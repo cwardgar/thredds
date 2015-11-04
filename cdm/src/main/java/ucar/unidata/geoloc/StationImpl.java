@@ -33,6 +33,8 @@
  */
 package ucar.unidata.geoloc;
 
+import com.google.common.base.MoreObjects;
+
 import javax.annotation.Nonnull;
 
 /**
@@ -72,6 +74,7 @@ public class StationImpl extends EarthLocationImpl implements Station {
    * Station name or id. Must be unique within the collection
    * @return station name or id. May not be null.
    */
+  @Override
   @Nonnull
   public String getName() { return name; }
 
@@ -79,14 +82,17 @@ public class StationImpl extends EarthLocationImpl implements Station {
    * Station description
    * @return station description
    */
+  @Override
   public String getDescription() { return desc; }
 
   /**
    * WMO station id
    * @return WMO station id, or null
    */
+  @Override
   public String getWmoId() { return wmoId; }
 
+  @Override
   public int getNobs() { return nobs; }
 
   /////
@@ -100,12 +106,21 @@ public class StationImpl extends EarthLocationImpl implements Station {
     this.nobs++;
   }
 
+  @Override
   public int compareTo(Station so) {
     return name.compareTo( so.getName());
   }
 
+  @Override
   public String toString() {
-    return "name="+name+" desc="+desc+" "+super.toString();
+    return MoreObjects.toStringHelper(this)
+            .add("name", name)
+            .add("desc", desc)
+            .add("wmoId", wmoId)
+            .add("nobs", nobs)
+            .add("lat", getLatitude())
+            .add("lon", getLongitude())
+            .add("alt", getAltitude())
+            .toString();
   }
-
 }

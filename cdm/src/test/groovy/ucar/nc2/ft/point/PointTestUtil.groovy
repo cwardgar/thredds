@@ -71,6 +71,14 @@ class PointTestUtil {
             return
         }
 
+        iterable1.each {
+            println it
+        }
+        println "----"
+        iterable2.each {
+            println it
+        }
+
         assert iterable1 && iterable2
         assertEquals iterable1.iterator(), iterable2.iterator()
     }
@@ -121,7 +129,10 @@ class PointTestUtil {
         assert station1.name == station2.name
         assert station1.wmoId == station2.wmoId
         assert station1.description == station2.description
-        assert station1.nobs == station2.nobs
+
+        // "nobs" will always be "-1" if the Station was built by the Table/NestedTable machinery.
+        // So, also consider two "nobs" equal if at least one of them is "-1" (unknown).
+        assert station1.nobs == station2.nobs || station1.nobs == -1 || station2.nobs == -1
     }
 
     static void assertEquals(PointFeature pointFeat1, PointFeature pointFeat2) throws IOException {
