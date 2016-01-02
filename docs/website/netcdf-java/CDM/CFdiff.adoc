@@ -1,6 +1,3 @@
-// use additional conditions to support other environments and extensions
-ifdef::env-github[:outfilesuffix: .adoc]
-
 :source-highlighter: coderay
 :cf: http://cfconventions.org/Data/cf-conventions/cf-conventions-1.7/build/cf-conventions.html
 [[threddsDocs]]
