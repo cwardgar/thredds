@@ -1,3 +1,11 @@
+import edu.ucar.build.LoggingTestListener
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+import java.nio.file.Files
+import java.nio.file.Paths
+
+final Logger testDataLogger = LoggerFactory.getLogger('testData')
+
 // The log messages in this ext block will be emitted every time we build, even if no Test task is being run.
 // That's a bit spammy, but at least the code is straightforward.
 // The alternative is to use "gradle.taskGraph.whenReady{}" and only do this config if a Test is in the task graph,
@@ -50,8 +58,6 @@ ext {
         'jna.boot.library.path'
     ]
 }
-
-import java.nio.file.*
 
 /**
  * Returns {@code true} if the given system property is defined and denotes an existing directory. Otherwise,
@@ -137,6 +143,16 @@ configure(javaProjects) {
             }
 
         }
+
+//        beforeTest { TestDescriptor descriptor ->
+//            testDataLogger.info "BEGIN ${descriptor.className}.${descriptor.name}()"
+//        }
+//
+//        afterTest { TestDescriptor descriptor ->
+//            testDataLogger.info "END   ${descriptor.className}.${descriptor.name}()"
+//        }
+
+        addTestListener(new LoggingTestListener())
     }
 
     Project subproject = delegate as Project
