@@ -111,6 +111,8 @@ libraries["log4j-web"] = "org.apache.logging.log4j:log4j-web:${versions["log4j"]
 
 libraries["log4j-slf4j-impl"] = "org.apache.logging.log4j:log4j-slf4j-impl:${versions["log4j"]}"
 
+libraries['logback-classic'] = 'ch.qos.logback:logback-classic:1.1.6'
+
 ////////////////////////////////////////// Testing //////////////////////////////////////////
 
 libraries["junit"] = "junit:junit:4.12"
