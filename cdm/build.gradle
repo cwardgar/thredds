@@ -25,6 +25,8 @@ dependencies {
 
     testCompile libraries["commons-io"]
     testCompile libraries["equalsverifier"]
+
+    compile 'org.kohsuke:file-leak-detector:1.8'  // For CdmUnitTestActivityListener.
 }
 
 test {
@@ -103,6 +105,9 @@ task testJar(type: Jar, dependsOn: testClasses,
         include 'ucar/unidata/test/util/NotTravis.class'
         include 'ucar/unidata/test/util/NeedsRdaData.class'
         include 'ucar/unidata/test/util/Slow.class'
+
+        // Reports which files in cdmUnitTest have been opened.
+        include 'ucar/unidata/test/util/CdmUnitTestActivityListener.class'
     }
     classifier = 'test'
 }

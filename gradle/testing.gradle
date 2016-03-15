@@ -1,10 +1,7 @@
 import edu.ucar.build.LoggingTestListener
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+
 import java.nio.file.Files
 import java.nio.file.Paths
-
-final Logger testDataLogger = LoggerFactory.getLogger('testData')
 
 // The log messages in this ext block will be emitted every time we build, even if no Test task is being run.
 // That's a bit spammy, but at least the code is straightforward.
@@ -145,18 +142,7 @@ configure(javaProjects) {
             if (!isRdaDataAvailable) {
                 excludeCategories 'ucar.unidata.test.util.NeedsRdaData'
             }
-
         }
-
-//        beforeTest { TestDescriptor descriptor ->
-//            testDataLogger.info "BEGIN ${descriptor.className}.${descriptor.name}()"
-//        }
-//
-//        afterTest { TestDescriptor descriptor ->
-//            testDataLogger.info "END   ${descriptor.className}.${descriptor.name}()"
-//        }
-
-        addTestListener(new LoggingTestListener())
     }
 
     Project subproject = delegate as Project
@@ -180,6 +166,36 @@ boolean testRuntimeHasDepNamed(Project project, String depName) {
     } catch (UnknownConfigurationException e) {  // Project did not have a configuration named 'testRuntime'.
         logger.debug e.message
         false
+    }
+}
+
+/////////////////////////// cdmUnitTest files opened report ///////////////////////////
+
+ext.reportOnCdmUnitTestFilesOpened = true
+
+if (reportOnCdmUnitTestFilesOpened) {
+    configure(javaProjects) {
+        configurations {
+            testAgent {
+                transitive = false
+            }
+        }
+
+        dependencies {
+            testAgent 'org.kohsuke:file-leak-detector:1.8:jar-with-dependencies'
+        }
+
+        tasks.withType(Test).all {
+            addTestListener(new LoggingTestListener())
+
+            // Delay resolution of testAgent configuration until execution phase. This avoids the error:
+            // "Cannot change dependencies of configuration $name after it has been resolved" in dependencies.gradle.
+            doFirst {
+                // set JVM arguments for the test JVM(s)
+                jvmArgs "-javaagent:${configurations.testAgent.singleFile}=" +
+                        "listener=ucar.unidata.test.util.CdmUnitTestActivityListener"  // From the cdm testJar.
+            }
+        }
     }
 }
 
