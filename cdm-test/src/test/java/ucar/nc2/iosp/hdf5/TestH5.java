@@ -33,6 +33,8 @@
 package ucar.nc2.iosp.hdf5;
 
 import org.junit.experimental.categories.Category;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ucar.ma2.Array;
 import ucar.ma2.Index;
 import ucar.nc2.NCdumpW;
@@ -48,100 +50,92 @@ import java.io.IOException;
 
 /**
  * TestSuite that runs all the sample testsNew
- *
  */
-@Category(NeedsCdmUnitTest.class)
-public class TestH5 {
-  public static boolean dumpFile = false;
-  public static String testDir = TestDir.cdmUnitTestDir + "formats/hdf5/";
+@Category(NeedsCdmUnitTest.class) public class TestH5 {
+    private final static Logger logger  = LoggerFactory.getLogger(TestH5.class);
+    public static        String testDir = TestDir.cdmUnitTestDir + "formats/hdf5/";
 
- public static NetcdfFile open( String filename) {
-    try {
-      System.out.println("**** Open "+filename);
-      NetcdfFile ncfile = NetcdfFile.open(filename);
-      if (TestH5.dumpFile) System.out.println("open "+ncfile);
-      return ncfile;
-
-    } catch (java.io.IOException e) {
-      System.out.println(" fail = "+e);
-      e.printStackTrace();
-      assert(false);
-      return null;
+    public static NetcdfFile open(String filename) {
+        try {
+            logger.debug("**** Open " + filename);
+            NetcdfFile ncfile = NetcdfFile.open(filename);
+            logger.debug("open " + ncfile);
+            return ncfile;
+        } catch (java.io.IOException e) {
+            logger.debug("Fail", e);
+            assert (false);
+            return null;
+        }
     }
-  }
 
-  public static NetcdfFile openH5( String filename) {
-    try {
-      System.out.println("**** Open "+ testDir+filename);
-      NetcdfFile ncfile = NetcdfFile.open( testDir+filename);
-      if (TestH5.dumpFile) System.out.println("open H5 "+ncfile);
-      return ncfile;
+    public static NetcdfFile openH5(String filename) {
+        try {
+            logger.debug("**** Open " + testDir + filename);
+            NetcdfFile ncfile = NetcdfFile.open(testDir + filename);
+            logger.debug("open H5 " + ncfile);
+            return ncfile;
 
-    } catch (java.io.IOException e) {
-      System.out.println(" fail = "+e);
-      e.printStackTrace();
-      assert(false);
-      return null;
+        } catch (java.io.IOException e) {
+            logger.debug("Fail", e);
+            assert (false);
+            return null;
+        }
     }
-  }
 
-  public static NetcdfDataset openH5dataset( String filename) {
-    try {
-      System.out.println("**** Open "+ testDir+filename);
-      NetcdfDataset ncfile = NetcdfDataset.openDataset( testDir+filename);
-      if (TestH5.dumpFile) System.out.println("open H5 "+ncfile);
-      return ncfile;
+    public static NetcdfDataset openH5dataset(String filename) {
+        try {
+            logger.debug("**** Open " + testDir + filename);
+            NetcdfDataset ncfile = NetcdfDataset.openDataset(testDir + filename);
+            logger.debug("open H5 " + ncfile);
+            return ncfile;
 
-    } catch (java.io.IOException e) {
-      System.out.println(" fail = "+e);
-      e.printStackTrace();
-      assert(false);
-      return null;
+        } catch (java.io.IOException e) {
+            logger.debug("Fail", e);
+            assert (false);
+            return null;
+        }
     }
-  }
 
-  public static class H5FileFilter implements FileFilter {
-    public boolean accept(File file) {
-      String name = file.getPath();
-      return (name.endsWith(".h5") || name.endsWith(".H5") || name.endsWith(".he5") || name.endsWith(".nc"));
+    public static class H5FileFilter implements FileFilter {
+        public boolean accept(File file) {
+            String name = file.getPath();
+            return (name.endsWith(".h5") || name.endsWith(".H5") || name.endsWith(".he5") || name.endsWith(".nc"));
+        }
     }
-  }
 
-  //////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////
 
-  // file that is offset 2048 bytes - NPP!
-  @org.junit.Test
-  public void testSuperblockIsOffset() throws IOException {
-    try (NetcdfFile ncfile = TestH5.openH5("superblockIsOffsetNPP.h5")) {
+    // file that is offset 2048 bytes - NPP!
+    @org.junit.Test public void testSuperblockIsOffset() throws IOException {
+        try (NetcdfFile ncfile = TestH5.openH5("superblockIsOffsetNPP.h5")) {
 
-      Variable v = ncfile.findVariable("BeamTime");
-      System.out.printf("%s%n", v);
+            Variable v = ncfile.findVariable("BeamTime");
+            logger.debug("%s%n", v);
 
-      Array data = v.read();
-      System.out.printf("%s%n", NCdumpW.toString(data, "offset data", null));
-      Index ii = data.getIndex();
-      assert (data.getLong(ii.set(11, 93)) == 1718796166693743L);
+            Array data = v.read();
+            logger.debug("%s%n", NCdumpW.toString(data, "offset data", null));
+            Index ii = data.getIndex();
+            assert (data.getLong(ii.set(11, 93)) == 1718796166693743L);
 
+        }
     }
-  }
 
-  // file that is offset 512 bytes - MatLab, using compact layout (!)
-  @org.junit.Test
-  public void testOffsetCompactLayout() throws IOException {
-    try (NetcdfFile ncfile = TestH5.openH5("matlab_cols.mat")) {
+    // file that is offset 512 bytes - MatLab, using compact layout (!)
+    @org.junit.Test public void testOffsetCompactLayout() throws IOException {
+        try (NetcdfFile ncfile = TestH5.openH5("matlab_cols.mat")) {
 
-      Variable v = ncfile.findVariable("b");
-      System.out.printf("%s%n", v);
+            Variable v = ncfile.findVariable("b");
+            logger.debug("%s%n", v);
 
-      Array data = v.read();
-      System.out.printf("%s%n", NCdumpW.toString(data, "offset data", null));
-      Index ii = data.getIndex();
-      assert (data.getDouble(ii.set(3, 2)) == 12.0);
+            Array data = v.read();
+            logger.debug("%s%n", NCdumpW.toString(data, "offset data", null));
+            Index ii = data.getIndex();
+            assert (data.getDouble(ii.set(3, 2)) == 12.0);
 
+        }
     }
-  }
 
-  // groups have a cycle using hard link
+    // groups have a cycle using hard link
   /*
   $ h5dump h5ex_g_traverse.h5
   HDF5 "h5ex_g_traverse.h5" {
@@ -174,11 +168,9 @@ public class TestH5 {
      }
   }
    */
-  @org.junit.Test
-  public void testGroupHardLinks() throws IOException {
-    try (NetcdfFile ncfile = TestH5.openH5("groupHasCycle.h5")) {
-      System.out.printf("%s%n", ncfile);
+    @org.junit.Test public void testGroupHardLinks() throws IOException {
+        try (NetcdfFile ncfile = TestH5.openH5("groupHasCycle.h5")) {
+            logger.debug("%s%n", ncfile);
+        }
     }
-  }
-
 }
