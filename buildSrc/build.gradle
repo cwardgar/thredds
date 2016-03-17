@@ -8,9 +8,8 @@ apply from: "../gradle/dependencies.gradle"
 
 dependencies {
     compile gradleApi()  // We're working with Gradle classes like org.gradle.api.Project.
-
-    compile libraries["slf4j-api"]
-    runtime libraries['logback-classic']
+    compile libraries['commons-io']
+    compile libraries['guava']
 
     testCompile (libraries["spock-core"]) {
         // The Gradle API drags in the bundled version of Groovy that Gradle ships with (localGroovy()) –
