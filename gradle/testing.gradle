@@ -1,4 +1,4 @@
-import edu.ucar.build.LoggingTestListener
+import edu.ucar.build.tasks.TestClassesReportTask
 
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -171,25 +171,27 @@ ext.reportOnCdmUnitTestFilesOpened = true
 
 if (reportOnCdmUnitTestFilesOpened) {
     configure(javaProjects) {
-        configurations {
-            testAgent {
-                transitive = false
+        afterEvaluate {
+            task testClassesReport(type: TestClassesReportTask)
+
+            configurations {
+                testAgent {
+                    transitive = false
+                }
             }
-        }
 
-        dependencies {
-            testAgent 'org.kohsuke:file-leak-detector:1.8:jar-with-dependencies'
-        }
+            dependencies {
+                testAgent 'org.kohsuke:file-leak-detector:1.8:jar-with-dependencies'
+            }
 
-        tasks.withType(Test).all {
-            addTestListener(new LoggingTestListener())
-
-            // Delay resolution of testAgent configuration until execution phase. This avoids the error:
-            // "Cannot change dependencies of configuration $name after it has been resolved" in dependencies.gradle.
-            doFirst {
-                // set JVM arguments for the test JVM(s)
-                jvmArgs "-javaagent:${configurations.testAgent.singleFile}=" +
-                        "listener=ucar.unidata.test.util.CdmUnitTestActivityListener"  // From the cdm testJar.
+            tasks.withType(Test).all {
+                // Delay resolution of testAgent configuration until execution phase. This avoids the error:
+                // "Cannot change dependencies of configuration $name after it has been resolved" in dependencies.gradle.
+                doFirst {
+                    // set JVM arguments for the test JVM(s)
+                    jvmArgs "-javaagent:${configurations.testAgent.singleFile}=" +
+                            "listener=ucar.unidata.test.util.CdmUnitTestActivityListener" // From the cdm testJar.
+                }
             }
         }
     }
