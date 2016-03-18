@@ -7,7 +7,7 @@ apply plugin: 'groovy'  // For Spock tests.
 dependencies {
     compile project(':udunits')
     compile project(':httpservices')
-    
+
     compile libraries["joda-time"]
     compile libraries["jdom2"]
     compile libraries["jcip-annotations"]
@@ -26,7 +26,7 @@ dependencies {
     testCompile libraries["commons-io"]
     testCompile libraries["equalsverifier"]
 
-    compile 'org.kohsuke:file-leak-detector:1.8'  // For CdmUnitTestActivityListener.
+    compile 'org.kohsuke:file-leak-detector:1.8'  // For OpenedFilesListener.
 }
 
 test {
@@ -106,8 +106,8 @@ task testJar(type: Jar, dependsOn: testClasses,
         include 'ucar/unidata/test/util/NeedsRdaData.class'
         include 'ucar/unidata/test/util/Slow.class'
 
-        // Reports which files in cdmUnitTest have been opened.
-        include 'ucar/unidata/test/util/CdmUnitTestActivityListener.class'
+        // Reports which files have been opened.
+        include 'ucar/unidata/test/util/OpenedFilesListener.class'
     }
     classifier = 'test'
 }

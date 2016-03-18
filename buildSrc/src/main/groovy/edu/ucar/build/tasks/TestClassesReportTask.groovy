@@ -24,7 +24,7 @@ class TestClassesReportTask extends DefaultTask {
     boolean hasGroovy
 
     TestClassesReportTask() {
-        destFile = project.file("${project.buildDir}/reports/testClasses.txt")
+        destFile = project.file("${project.testResultsDir}/testClasses.txt")
         hasJava = project.plugins.hasPlugin('java')
         hasGroovy = project.plugins.hasPlugin('groovy')
 
