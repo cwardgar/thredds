@@ -26,7 +26,7 @@ dependencies {
     testCompile libraries["commons-io"]
     testCompile libraries["equalsverifier"]
 
-    compile 'org.kohsuke:file-leak-detector:1.8'  // For CdmUnitTestActivityListener.
+    compile 'org.kohsuke:file-leak-detector:1.8'  // For OpenedFilesListener.
 }
 
 javadoc {

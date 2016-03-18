@@ -185,12 +185,25 @@ if (reportOnCdmUnitTestFilesOpened) {
             }
 
             tasks.withType(Test).all {
+                dependsOn tasks.testClassesReport
+
+                Set<File> testResourceDirs = project.sourceSets.test.resources.srcDirs
+                assert testResourceDirs.size() == 1 :
+                        "Expected exactly 1 test resource directory but found: $testResourceDirs"
+
+                systemProperties['OpenedFilesListener_included.paths.file'] =
+                        new File(testResourceDirs.first(), 'included-paths.txt')
+
+                systemProperties['OpenedFilesListener_included.classes.file'] = tasks.testClassesReport.destFile
+
+                systemProperties['OpenedFilesListener_report.file'] = new File(testReportDir, 'opened-files-report.txt')
+
                 // Delay resolution of testAgent configuration until execution phase. This avoids the error:
                 // "Cannot change dependencies of configuration $name after it has been resolved" in dependencies.gradle.
                 doFirst {
                     // set JVM arguments for the test JVM(s)
                     jvmArgs "-javaagent:${configurations.testAgent.singleFile}=" +
-                            "listener=ucar.unidata.test.util.CdmUnitTestActivityListener" // From the cdm testJar.
+                            "listener=ucar.unidata.test.util.OpenedFilesListener" // From the cdm testJar.
                 }
             }
         }
