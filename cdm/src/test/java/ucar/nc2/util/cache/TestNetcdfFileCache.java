@@ -243,7 +243,7 @@ public class TestNetcdfFileCache {
   int N = 10000;
   int PROD_THREAD = 10;
   int CONS_THREAD = 10;
-  // int QSIZE = 10;
+  int QSIZE = 1000;
   int SKIP = 100;
 
   @Test
@@ -264,7 +264,7 @@ public class TestNetcdfFileCache {
     ExecutorService exec = null;
     try {
       Formatter format = new Formatter(System.out);
-      ConcurrentLinkedQueue<Future> q = new ConcurrentLinkedQueue<>();
+      LinkedBlockingDeque<Future> q = new LinkedBlockingDeque<>(QSIZE);
       qexec = Executors.newFixedThreadPool(CONS_THREAD);
       qexec.submit(new Consumer(q, format));
 
@@ -273,7 +273,7 @@ public class TestNetcdfFileCache {
         // pick a file at random
         int findex = r.nextInt(nfiles);
         String location = files.get(findex);
-        q.add(exec.submit(new CallAcquire(location)));
+        q.putLast(exec.submit(new CallAcquire(location)));
 
         if (i % SKIP == 0) {
           format.format(" %3d qsize= %3d ", i, q.size());
@@ -320,19 +320,18 @@ public class TestNetcdfFileCache {
   }
 
   class Consumer implements Runnable {
-    private final ConcurrentLinkedQueue<Future> queue;
+    private final BlockingDeque<Future> queue;
     Formatter format;
 
-    Consumer(ConcurrentLinkedQueue<Future> q, Formatter format) {
+    Consumer(BlockingDeque<Future> q, Formatter format) {
       queue = q;
       this.format = format;
     }
 
-
     public void run() {
       try {
         while (true) {
-          consume(queue.poll());
+          consume(queue.takeFirst());
         }
       } catch (Exception ex) {
         ex.printStackTrace();

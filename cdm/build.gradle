@@ -108,6 +108,8 @@ task testJar(type: Jar, dependsOn: testClasses,
 
         // Reports which files have been opened.
         include 'ucar/unidata/test/util/OpenedFilesListener.class'
+        include 'ucar/unidata/test/util/OpenedFilesListener$ShutdownThread.class'
+        include 'ucar/unidata/test/util/OpenedFilesListener$FullWriteCompletionHandler.class'
     }
     classifier = 'test'
 }

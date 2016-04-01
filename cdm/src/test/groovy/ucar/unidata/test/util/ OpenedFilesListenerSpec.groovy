@@ -1,11 +1,10 @@
 package ucar.unidata.test.util
 
 import spock.lang.Specification
-
 import java.nio.file.Paths
 
 /**
- *
+ * Tests OpenedFilesListener.
  *
  * @author cwardgar
  * @since 2016-03-18
@@ -22,4 +21,6 @@ class OpenedFilesListenerSpec extends Specification {
     def "getSystemPropAsPath falure"() {
         // TODO
     }
+
+    // TODO: Need more tests.
 }

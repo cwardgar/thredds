@@ -2,6 +2,7 @@ import edu.ucar.build.tasks.TestClassesReportTask
 
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.util.zip.GZIPInputStream
 
 // The log messages in this ext block will be emitted every time we build, even if no Test task is being run.
 // That's a bit spammy, but at least the code is straightforward.
@@ -93,7 +94,7 @@ boolean isSystemPropertyAValidDirectory(String sysPropKey) {
 }
 
 
-configure(javaProjects) {
+configure(testedProjects) {
     apply plugin: 'java'
     apply from: "$rootDir/gradle/dependencies.gradle"
 
@@ -174,7 +175,7 @@ boolean testRuntimeHasDepNamed(Project project, String depName) {
 ext.reportOnCdmUnitTestFilesOpened = true
 
 if (reportOnCdmUnitTestFilesOpened) {
-    configure(javaProjects) {
+    configure(testedProjects) { Project project ->
         afterEvaluate {
             task testClassesReport(type: TestClassesReportTask)
 
@@ -188,26 +189,58 @@ if (reportOnCdmUnitTestFilesOpened) {
                 testAgent 'org.kohsuke:file-leak-detector:1.8:jar-with-dependencies'
             }
 
+            ext {
+                // This string is the same as ucar.unidata.test.utilOpenedFileListener.REPORT_FILE_KEY,
+                // but we can't access that field here.
+                reportFileKey = 'OpenedFilesListener_report.file'
+
+                reportFileValue = project.file("${project.testResultsDir}/opened-files-report.ser.gz")
+            }
+
+            task deserializeReportFile << {
+                if (!reportFileValue.exists()) {
+                    logger.warn "Skipping task because report file doesn't exist: $reportFileValue"
+                    return
+                }
+
+                FileInputStream fis = new FileInputStream(reportFileValue)
+
+                new ObjectInputStream(new GZIPInputStream(new BufferedInputStream(fis))).withCloseable {
+                    int numRecords = 0
+                    for ( ; true; ++numRecords) {
+                        try {
+                            File file = (File) it.readObject()
+                            StackTraceElement[] stackTraceElems = (StackTraceElement[]) it.readObject()
+                        } catch (EOFException e) {  // This is the only way to detect EOF.
+                            break
+                        }
+                    }
+                    println "Deserialized $numRecords records"
+                }
+            }
+
             tasks.withType(Test).all {
                 dependsOn tasks.testClassesReport
+                finalizedBy tasks.deserializeReportFile
 
-                Set<File> testResourceDirs = project.sourceSets.test.resources.srcDirs
-                assert testResourceDirs.size() == 1 :
-                        "Expected exactly 1 test resource directory but found: $testResourceDirs"
+//                Set<File> testResourceDirs = project.sourceSets.test.resources.srcDirs
+//                assert testResourceDirs.size() == 1 :
+//                        "Expected exactly 1 test resource directory but found: $testResourceDirs"
+//
+//                systemProperties['OpenedFilesListener_included.paths.file'] =
+//                        new File(testResourceDirs.first(), 'included-paths.txt')
+//
+//                systemProperties['OpenedFilesListener_included.classes.file'] = tasks.testClassesReport.destFile
 
-                systemProperties['OpenedFilesListener_included.paths.file'] =
-                        new File(testResourceDirs.first(), 'included-paths.txt')
-
-                systemProperties['OpenedFilesListener_included.classes.file'] = tasks.testClassesReport.destFile
-
-                systemProperties['OpenedFilesListener_report.file'] = new File(testReportDir, 'opened-files-report.txt')
+                systemProperties[reportFileKey as String] = reportFileValue
 
                 // Delay resolution of testAgent configuration until execution phase. This avoids the error:
-                // "Cannot change dependencies of configuration $name after it has been resolved" in dependencies.gradle.
+                // "Cannot change dependencies of configuration $name after it has been resolved" in
+                // dependencies.gradle.
                 doFirst {
                     // set JVM arguments for the test JVM(s)
                     jvmArgs "-javaagent:${configurations.testAgent.singleFile}=" +
-                            "listener=ucar.unidata.test.util.OpenedFilesListener" // From the cdm testJar.
+                            "listener=ucar.unidata.test.util.OpenedFilesListener"  // From the cdm testJar.
                 }
             }
         }
