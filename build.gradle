@@ -32,8 +32,9 @@ ext {
     buildTimestamp = iso_8601_format.format(new Date())
 
     // Project groups:
-    nonJavaProjects = allprojects.findAll { it.path in [ ':', ':dap4' ] }
-    javaProjects = allprojects - nonJavaProjects
+    javaProjects = allprojects.findAll { !(it.path in [ ':', ':dap4' ]) }
+    testedProjects = allprojects.findAll { it.path in [ ':cdm', ':cdm-test', ':dap4:d4tests', ':grib', ':it',
+            ':legacy', ':opendap', ':tds', ':udunits', ':ui', ':waterml' ] }
 
     internalProjects = allprojects.findAll { it.path in [
             ':dap4', ':dap4:d4tests', ':dap4:d4ts', ':opendap:dtswar',

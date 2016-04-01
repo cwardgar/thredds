@@ -1,4 +1,4 @@
-configure(javaProjects + rootProject) {
+configure(testedProjects + rootProject) {
     // The jacoco plugin adds the jacocoTestReport task, but only if the java plugin is already applied.
     apply plugin: "jacoco"
 
@@ -31,6 +31,7 @@ configure(javaProjects + rootProject) {
 }
 
 ///////////////////////////////////////////////// Root /////////////////////////////////////////////////
+
 task rootJacocoReport(type: JacocoReport, group: 'Reports') {
     description = 'Generates an aggregate coverage report from all subprojects'
 
