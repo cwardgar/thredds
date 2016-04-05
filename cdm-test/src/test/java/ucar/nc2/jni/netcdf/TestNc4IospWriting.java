@@ -46,8 +46,8 @@ public class TestNc4IospWriting {
     File fin = new File(TestDir.cdmUnitTestDir + "formats/netcdf3/longOffset.nc");
     String datasetOut = tempDir + fin.getName();
 
-    copyFile(fin.getAbsolutePath(), datasetOut, NetcdfFileWriter.Version.netcdf3);
-    copyFile(fin.getAbsolutePath(), datasetOut, NetcdfFileWriter.Version.netcdf4);
+    copyFile(fin.getAbsolutePath(), datasetOut, NetcdfFileWriter.Version.netcdf3, false, false, true);
+    copyFile(fin.getAbsolutePath(), datasetOut, NetcdfFileWriter.Version.netcdf4, false, false, true);
   }
 
     @Test
@@ -61,8 +61,22 @@ public class TestNc4IospWriting {
     @Test
     @Category(NeedsCdmUnitTest.class)
     public void writeNetcdf4Compound() throws IOException {
+        boolean compareData;
+        if ("Mac OS X".equals(System.getProperty("os.name"))) {
+            // Don't compare data for compound data types on OS X. Doing so causes a SIGSEGV error in libhdf5.10.dylib
+            // when the native lib tries to read the file. I have no idea why. The error is very flaky--
+            // often appearing in different stack frames and sometimes not appearing at all--
+            // but this command causes it 90+% of the time when "compareData == true":
+            //   ./gradlew :cdm-test:cleanTest :cdm-test:test --tests *TestNc4IospWriting
+            compareData = false;
+        } else {
+            compareData = true;
+        }
+
+        MyAct act = new MyAct(false, false, compareData);
+
         int count = 0;
-        count += TestDir.actOnAll(TestDir.cdmUnitTestDir + "formats/netcdf4/compound/", new MyFileFilter(), new MyAct(), true);
+        count += TestDir.actOnAll(TestDir.cdmUnitTestDir + "formats/netcdf4/compound/", new MyFileFilter(),act, true);
         System.out.printf("***READ %d files FAIL = %d%n", count, countNotOK);
     }
 
@@ -118,12 +132,24 @@ public class TestNc4IospWriting {
     }
 
     private class MyAct implements TestDir.Act {
+        boolean showCompare, showEach, compareData;
+
+        private MyAct() {
+            this(false, false, true);
+        }
+
+        private MyAct(boolean showCompare, boolean showEach, boolean compareData) {
+            this.showCompare = showCompare;
+            this.showEach = showEach;
+            this.compareData = compareData;
+        }
+
         public int doAct(String datasetIn) throws IOException
         {
             File fin = new File(datasetIn);
             String datasetOut = tempDir + fin.getName();
 
-            if(!copyFile(datasetIn, datasetOut, NetcdfFileWriter.Version.netcdf4))
+            if(!copyFile(datasetIn, datasetOut, NetcdfFileWriter.Version.netcdf4, showCompare, showEach, compareData))
                 countNotOK++;
             return 1;
         }
@@ -142,15 +168,17 @@ public class TestNc4IospWriting {
 
     private String tempDir = TestDir.temporaryLocalDataDir; // "C:/temp/";
 
-    private boolean copyFile(String datasetIn, String datasetOut, NetcdfFileWriter.Version version) throws IOException {
-
+    private boolean copyFile(String datasetIn, String datasetOut, NetcdfFileWriter.Version version,
+            boolean showCompare, boolean showEach, boolean compareData) throws IOException {
         System.out.printf("TestNc4IospWriting copy %s to %s%n", datasetIn, datasetOut);
-        NetcdfFile ncfileIn = ucar.nc2.NetcdfFile.open(datasetIn, null);
-        FileWriter2 writer2 = new FileWriter2(ncfileIn, datasetOut, version, null);
-        NetcdfFile ncfileOut = writer2.write();
-        compare(ncfileIn, ncfileOut, true, false, true);
-        ncfileIn.close();
-        ncfileOut.close();
+
+        try (NetcdfFile ncfileIn = NetcdfFile.open(datasetIn, null)) {
+            FileWriter2 writer2 = new FileWriter2(ncfileIn, datasetOut, version, null);
+            try (NetcdfFile ncfileOut = writer2.write()) {
+                compare(ncfileIn, ncfileOut, showCompare, showEach, compareData);
+            }
+        }
+
         // System.out.println("NetcdfFile written = " + ncfileOut);
         return true;
     }
