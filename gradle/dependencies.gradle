@@ -126,9 +126,14 @@ libraries["com.eclipsesource.restfuse"] = "com.restfuse:com.eclipsesource.restfu
 libraries["httpunit"] = "httpunit:httpunit:1.7"
 
 libraries["commons-io"] = "commons-io:commons-io:2.4"
+
 libraries["commons-compress"] = "org.apache.commons:commons-compress:1.8.1"
 
 libraries["equalsverifier"] = "nl.jqno.equalsverifier:equalsverifier:1.7.5"
+
+libraries["file-leak-detector"] = 'org.kohsuke:file-leak-detector:1.8'
+
+libraries["file-leak-detector-fatJar"] = 'org.kohsuke:file-leak-detector:1.8:jar-with-dependencies'
 
 // These four are all for Spock.
 libraries["spock-core"] = "org.spockframework:spock-core:1.0-groovy-2.4"
@@ -141,7 +146,6 @@ libraries["cglib-nodep"] = "com.github.cglib.cglib:cglib-nodep:5503bcca74"
 
 // In Spock, allows mocking of classes without default constructor (together with CGLIB).
 libraries["objenesis"] = "org.objenesis:objenesis:2.2"
-
 
 ////////////////////////////////////////// Other //////////////////////////////////////////
 

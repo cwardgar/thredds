@@ -1,4 +1,4 @@
-package ucar.unidata.test.util
+package edu.ucar.build
 
 import spock.lang.Specification
 import java.nio.file.Paths
