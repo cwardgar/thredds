@@ -11,6 +11,8 @@ dependencies {
     compile libraries['commons-io']
     compile libraries['guava']
 
+    compile libraries["file-leak-detector"]  // For OpenedFilesListener.
+
     testCompile (libraries["spock-core"]) {
         // The Gradle API drags in the bundled version of Groovy that Gradle ships with (localGroovy()) –
         // see https://discuss.gradle.org/t/unable-to-force-gradle-to-use-groovy-2-0-0-for-the-project/7021.

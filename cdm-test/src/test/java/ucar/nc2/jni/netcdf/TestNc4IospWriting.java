@@ -68,6 +68,7 @@ public class TestNc4IospWriting {
             // often appearing in different stack frames and sometimes not appearing at all--
             // but this command causes it 90+% of the time when "compareData == true":
             //   ./gradlew :cdm-test:cleanTest :cdm-test:test --tests *TestNc4IospWriting
+            // See https://github.com/Unidata/thredds/issues/515
             compareData = false;
         } else {
             compareData = true;

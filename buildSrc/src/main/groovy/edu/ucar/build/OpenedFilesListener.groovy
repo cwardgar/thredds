@@ -1,21 +1,17 @@
-package ucar.unidata.test.util;
+package edu.ucar.build
 
-import org.kohsuke.file_leak_detector.ActivityListener;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import java.io.*;
-import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousFileChannel;
-import java.nio.channels.CompletionHandler;
-import java.nio.file.*;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.zip.GZIPOutputStream;
+import org.kohsuke.file_leak_detector.ActivityListener
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
+import java.nio.ByteBuffer
+import java.nio.channels.AsynchronousFileChannel
+import java.nio.channels.CompletionHandler
+import java.nio.file.*
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicLong
+import java.util.zip.GZIPOutputStream
 
 /**
  * This class is notified by <a href ="http://file-leak-detector.kohsuke.org/">file-leak-detector</a> each time a file

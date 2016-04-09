@@ -1,8 +1,7 @@
-import edu.ucar.build.tasks.TestClassesReportTask
-
+import edu.ucar.build.OpenedFilesListener
+import edu.ucar.build.tasks.FilterOpenedFilesTask
 import java.nio.file.Files
 import java.nio.file.Paths
-import java.util.zip.GZIPInputStream
 
 // The log messages in this ext block will be emitted every time we build, even if no Test task is being run.
 // That's a bit spammy, but at least the code is straightforward.
@@ -20,7 +19,7 @@ ext {
 
 
     travisEnvVar = 'TRAVIS'
-    isTravis = System.env[travisEnvVar] as boolean        // We only care if prop is defined, not its actual value.
+    isTravis = System.env[travisEnvVar] as boolean  // We only care if prop is defined, not its actual value.
 
     if (isTravis) {
         logger.warn "Skipping all NotTravis tests: detected that we're running in the Travis environment."
@@ -49,6 +48,7 @@ ext {
         // Passing this causes "java.lang.ClassNotFoundException: org.jacoco.agent.rt.internal_932a715.PreMain"
         // See https://discuss.gradle.org/t/jacoco-related-failure-in-multiproject-build/6216
         'user.dir',
+
         // Gradle is also using JNA and it sets this property when it runs. However, it is an old, incompatible version
         // (3.2.7). We'll fail to load NetCDF-C if we try to do it using JNA v3.
         // What we want is for JNA to look in the JNA jar file for the lib, which it'll do if this prop is *undefined*.
@@ -175,72 +175,63 @@ boolean testRuntimeHasDepNamed(Project project, String depName) {
 ext.reportOnCdmUnitTestFilesOpened = true
 
 if (reportOnCdmUnitTestFilesOpened) {
-    configure(testedProjects) { Project project ->
+    configure(testedProjects) {
         afterEvaluate {
-            task testClassesReport(type: TestClassesReportTask)
-
             configurations {
-                testAgent {
-                    transitive = false
-                }
+                testAgent { transitive = false }  // See note below.
             }
 
             dependencies {
-                testAgent 'org.kohsuke:file-leak-detector:1.8:jar-with-dependencies'
+                // We want to instrument the Gradle test executor JVM with file-leak-detector. We do this by using
+                // the -javaagent switch (see https://docs.oracle.com/javase/8/docs/api/java/lang/instrument/
+                // package-summary.html#package.description). The switch requires that the agent and its dependencies
+                // be contained within a single jar.
+                //
+                // Luckily, a fat jar is available on Maven Central. We add it to its own configuration (testAgent)
+                // that is NON-transitive. Non-transitivity is important because the Gradle dependency machinery is
+                // processing the regular (and only) file-leak-detector POM. That POM assumes usage of the skinny jar
+                // and declares dependencies that we don't need because they're already packaged in the fat jar.
+                testAgent libraries["file-leak-detector-fatJar"]
+
+                // Add the classes from :buildSrc to the testRuntime classpath. Specifically, we need to make
+                // edu.ucar.build.OpenedFileList available to the test JVM. Given that the output of :buildSrc is
+                // implicitly added to the buildscript classpaths of other subprojects, you'd think there'd be a less
+                // kludgy way to accomplish this, but apparently not: http://stackoverflow.com/questions/22633813.
+                // In any event, :buildSrc:assemble is guaranteed to have run by this point in the build, so the
+                // addition is safe.
+                testRuntime rootProject.files('buildSrc/build/classes/main')
             }
 
-            ext {
-                // This string is the same as ucar.unidata.test.utilOpenedFileListener.REPORT_FILE_KEY,
-                // but we can't access that field here.
-                reportFileKey = 'OpenedFilesListener_report.file'
-
-                reportFileValue = project.file("${project.testResultsDir}/opened-files-report.ser.gz")
-            }
-
-            task deserializeReportFile << {
-                if (!reportFileValue.exists()) {
-                    logger.warn "Skipping task because report file doesn't exist: $reportFileValue"
-                    return
-                }
-
-                FileInputStream fis = new FileInputStream(reportFileValue)
-
-                new ObjectInputStream(new GZIPInputStream(new BufferedInputStream(fis))).withCloseable {
-                    int numRecords = 0
-                    for ( ; true; ++numRecords) {
-                        try {
-                            File file = (File) it.readObject()
-                            StackTraceElement[] stackTraceElems = (StackTraceElement[]) it.readObject()
-                        } catch (EOFException e) {  // This is the only way to detect EOF.
-                            break
-                        }
-                    }
-                    println "Deserialized $numRecords records"
-                }
-            }
+            File openedFilesReport = file("${testReportDir}/opened-files-report.ser.gz")
 
             tasks.withType(Test).all {
-                dependsOn tasks.testClassesReport
-                finalizedBy tasks.deserializeReportFile
-
-//                Set<File> testResourceDirs = project.sourceSets.test.resources.srcDirs
-//                assert testResourceDirs.size() == 1 :
-//                        "Expected exactly 1 test resource directory but found: $testResourceDirs"
-//
-//                systemProperties['OpenedFilesListener_included.paths.file'] =
-//                        new File(testResourceDirs.first(), 'included-paths.txt')
-//
-//                systemProperties['OpenedFilesListener_included.classes.file'] = tasks.testClassesReport.destFile
-
-                systemProperties[reportFileKey as String] = reportFileValue
+                outputs.file openedFilesReport
+                systemProperties[OpenedFilesListener.REPORT_FILE_KEY] = openedFilesReport
 
                 // Delay resolution of testAgent configuration until execution phase. This avoids the error:
                 // "Cannot change dependencies of configuration $name after it has been resolved" in
                 // dependencies.gradle.
                 doFirst {
-                    // set JVM arguments for the test JVM(s)
+                    // set arguments for the test executor JVM.
                     jvmArgs "-javaagent:${configurations.testAgent.singleFile}=" +
-                            "listener=ucar.unidata.test.util.OpenedFilesListener"  // From the cdm testJar.
+                            "listener=${OpenedFilesListener.name}"  // From :buildSrc
+                }
+            }
+
+            task filterOpenedFiles(type: FilterOpenedFilesTask, group: 'Verification') {
+                unfilteredRecordsFile = openedFilesReport
+                hitsDestFile   = file("${testReportDir}/opened-files-report-hits.txt")
+                missesDestFile = file("${testReportDir}/opened-files-report-misses.txt")
+
+                if (isCdmUnitTestDirAvailable) {
+                    addOpenedFilesToReportOn fileTree(new File(System.properties[testdataDirKey]))
+                }
+
+                if (plugins.hasPlugin('java')) {
+                    addSourceFilesToReportOn sourceSets.test.java
+                }
+                if (plugins.hasPlugin('groovy')) {
+                    addSourceFilesToReportOn sourceSets.test.groovy
                 }
             }
         }
