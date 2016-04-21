@@ -170,70 +170,71 @@ boolean testRuntimeHasDepNamed(Project project, String depName) {
     }
 }
 
-/////////////////////////// cdmUnitTest files opened report ///////////////////////////
+/////////////////////////// cdmUnitTest/ opened-files report ///////////////////////////
 
 ext.reportOnCdmUnitTestFilesOpened = true
 
 if (reportOnCdmUnitTestFilesOpened) {
     configure(testedProjects) {
-        afterEvaluate {
-            configurations {
-                testAgent { transitive = false }  // See note below.
+        configurations {
+            testAgent { transitive = false }  // See note below.
+        }
+
+        dependencies {
+            // We want to instrument the Gradle test executor JVM with file-leak-detector. We do this by using
+            // the -javaagent switch (see https://docs.oracle.com/javase/8/docs/api/java/lang/instrument/
+            // package-summary.html#package.description). The switch requires that the agent and its dependencies
+            // be contained within a single jar.
+            //
+            // Luckily, a fat jar is available on Maven Central. We add it to its own configuration (testAgent)
+            // that is NON-transitive. Non-transitivity is important because the Gradle dependency machinery is
+            // processing the regular (and only) file-leak-detector POM. That POM assumes usage of the skinny jar
+            // and declares dependencies that we don't need because they're already packaged in the fat jar.
+            testAgent libraries["file-leak-detector-fatJar"]
+
+            // Add the classes from :buildSrc to the testRuntime classpath. Specifically, we need to make
+            // edu.ucar.build.OpenedFileList available to the test JVM. Given that the output of :buildSrc is
+            // implicitly added to the buildscript classpaths of other subprojects, you'd think there'd be a less
+            // kludgy way to accomplish this, but apparently not: http://stackoverflow.com/questions/22633813.
+            // In any event, :buildSrc:assemble is guaranteed to have run by this point in the build, so the
+            // addition is safe.
+            testRuntime rootProject.files('buildSrc/build/classes/main')
+        }
+
+        File openedFilesReport = file("${testReportDir}/opened-files-report.ser.gz")
+
+        tasks.withType(Test).all {
+            outputs.file openedFilesReport
+            systemProperties[OpenedFilesListener.REPORT_FILE_KEY] = openedFilesReport
+
+            // Delay resolution of testAgent configuration until execution phase. This avoids the error:
+            // "Cannot change dependencies of configuration $name after it has been resolved" in
+            // dependencies.gradle.
+            doFirst {
+                // set arguments for the test executor JVM.
+                jvmArgs "-javaagent:${configurations.testAgent.singleFile}=" +
+                        "listener=${OpenedFilesListener.name}"  // From :buildSrc
+            }
+        }
+
+        task filterOpenedFiles(type: FilterOpenedFilesTask, group: 'Verification') {
+            unfilteredRecordsFile = openedFilesReport
+            hitsDestFile   = file("${testReportDir}/opened-files-report-hits.txt")
+            missesDestFile = file("${testReportDir}/opened-files-report-misses.txt")
+
+            if (isCdmUnitTestDirAvailable) {
+                addOpenedFilesToReportOn fileTree(new File(System.properties[testdataDirKey]))
             }
 
-            dependencies {
-                // We want to instrument the Gradle test executor JVM with file-leak-detector. We do this by using
-                // the -javaagent switch (see https://docs.oracle.com/javase/8/docs/api/java/lang/instrument/
-                // package-summary.html#package.description). The switch requires that the agent and its dependencies
-                // be contained within a single jar.
-                //
-                // Luckily, a fat jar is available on Maven Central. We add it to its own configuration (testAgent)
-                // that is NON-transitive. Non-transitivity is important because the Gradle dependency machinery is
-                // processing the regular (and only) file-leak-detector POM. That POM assumes usage of the skinny jar
-                // and declares dependencies that we don't need because they're already packaged in the fat jar.
-                testAgent libraries["file-leak-detector-fatJar"]
-
-                // Add the classes from :buildSrc to the testRuntime classpath. Specifically, we need to make
-                // edu.ucar.build.OpenedFileList available to the test JVM. Given that the output of :buildSrc is
-                // implicitly added to the buildscript classpaths of other subprojects, you'd think there'd be a less
-                // kludgy way to accomplish this, but apparently not: http://stackoverflow.com/questions/22633813.
-                // In any event, :buildSrc:assemble is guaranteed to have run by this point in the build, so the
-                // addition is safe.
-                testRuntime rootProject.files('buildSrc/build/classes/main')
+            if (plugins.hasPlugin('java')) {
+                addSourceFilesToReportOn sourceSets.test.java
+            }
+            if (plugins.hasPlugin('groovy')) {
+                addSourceFilesToReportOn sourceSets.test.groovy
             }
 
-            File openedFilesReport = file("${testReportDir}/opened-files-report.ser.gz")
-
-            tasks.withType(Test).all {
-                outputs.file openedFilesReport
-                systemProperties[OpenedFilesListener.REPORT_FILE_KEY] = openedFilesReport
-
-                // Delay resolution of testAgent configuration until execution phase. This avoids the error:
-                // "Cannot change dependencies of configuration $name after it has been resolved" in
-                // dependencies.gradle.
-                doFirst {
-                    // set arguments for the test executor JVM.
-                    jvmArgs "-javaagent:${configurations.testAgent.singleFile}=" +
-                            "listener=${OpenedFilesListener.name}"  // From :buildSrc
-                }
-            }
-
-            task filterOpenedFiles(type: FilterOpenedFilesTask, group: 'Verification') {
-                unfilteredRecordsFile = openedFilesReport
-                hitsDestFile   = file("${testReportDir}/opened-files-report-hits.txt")
-                missesDestFile = file("${testReportDir}/opened-files-report-misses.txt")
-
-                if (isCdmUnitTestDirAvailable) {
-                    addOpenedFilesToReportOn fileTree(new File(System.properties[testdataDirKey]))
-                }
-
-                if (plugins.hasPlugin('java')) {
-                    addSourceFilesToReportOn sourceSets.test.java
-                }
-                if (plugins.hasPlugin('groovy')) {
-                    addSourceFilesToReportOn sourceSets.test.groovy
-                }
-            }
+            openedFilesIgnorePatterns << ~/.+\.jar$/
+            openedFilesIgnorePatterns << ~/.+\.class$/
         }
     }
 }

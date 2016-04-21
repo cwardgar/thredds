@@ -3,12 +3,10 @@ package edu.ucar.build.tasks
 import org.apache.commons.io.FilenameUtils
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.FileCollection
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.InputFile
-import org.gradle.api.tasks.OutputFile
-import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 import java.util.zip.GZIPInputStream
@@ -25,11 +23,14 @@ class FilterOpenedFilesTask extends DefaultTask {
     @InputFile
     File unfilteredRecordsFile
 
-    @Input
+    @Input @Optional
     FileCollection openedFilesToReportOn
 
-    @Input
+    @Input @Optional
     FileCollection sourceFilesToReportOn
+
+    @Input @Optional
+    List<Pattern> openedFilesIgnorePatterns
 
     @OutputFile
     File hitsDestFile
@@ -39,6 +40,12 @@ class FilterOpenedFilesTask extends DefaultTask {
 
     FilterOpenedFilesTask() {
         description = "Filters an opened-files report to only contain records of interest."
+
+        // By default these are empty, which will result in all records being written to missesDestFile.
+        openedFilesToReportOn = project.files()
+        sourceFilesToReportOn = project.files()
+
+        openedFilesIgnorePatterns = []
 
         onlyIf {
             if (unfilteredRecordsFile.exists()) {
@@ -51,19 +58,11 @@ class FilterOpenedFilesTask extends DefaultTask {
     }
 
     void addOpenedFilesToReportOn(Object... paths) {
-        if (!openedFilesToReportOn) {
-            openedFilesToReportOn = project.files(paths)
-        } else {
-            openedFilesToReportOn = openedFilesToReportOn + project.files(paths)
-        }
+        openedFilesToReportOn = openedFilesToReportOn + project.files(paths)
     }
 
     void addSourceFilesToReportOn(Object... paths) {
-        if (!sourceFilesToReportOn) {
-            sourceFilesToReportOn = project.files(paths)
-        } else {
-            sourceFilesToReportOn = sourceFilesToReportOn + project.files(paths)
-        }
+        sourceFilesToReportOn = sourceFilesToReportOn + project.files(paths)
     }
 
     @TaskAction
@@ -81,18 +80,20 @@ class FilterOpenedFilesTask extends DefaultTask {
                             StackTraceElement[] stackFrames = it.readObject() as StackTraceElement[]
                             StackTraceElement stackFrame = findNearestMethodCallFromOneOf(stackFrames, classNames)
 
-                            if (stackFrame != null && openedFilesToReportOn.contains(file)) {
+                            if (fileMatchesIgnorePattern(file)) {
+                                continue  // Don't record a hit or miss for ignored files.
+                            } else if (stackFrame != null && openedFilesToReportOn.contains(file)) {
                                 hitsWriter.printf("%s,%s.%s%n", file, stackFrame.className, stackFrame.methodName)
                             } else {
                                 missesWriter.println file
 
                                 if (stackFrame != null) {
                                     // If we've identified a frame-of-interest, print only that frame.
-                                    missesWriter.printf "\tat %s%n", stackFrame
+                                    missesWriter.print "\tat $stackFrame\n"
                                 } else {
                                     // Otherwise print the entire stack trace.
                                     stackFrames.each {
-                                        missesWriter.printf "\tat %s%n", it
+                                        missesWriter.print "\tat $it\n"
                                     }
                                 }
                             }
@@ -105,6 +106,23 @@ class FilterOpenedFilesTask extends DefaultTask {
                 }
             }
         }
+    }
+
+    /**
+     * Returns {@code true} if the file matches one of {@code openedFilesIgnorePatterns}.
+     *
+     * @param file  a file.
+     * @return  {@code true} if the file matches one of {@code openedFilesIgnorePatterns}.
+     */
+    boolean fileMatchesIgnorePattern(File file) {
+        for (Pattern ignorePattern : openedFilesIgnorePatterns) {
+            if (file.canonicalPath ==~ ignorePattern) {
+                log.debug "$file was ignored by pattern '$ignorePattern'"
+                return true
+            }
+        }
+
+        return false
     }
 
     /**
@@ -123,7 +141,7 @@ class FilterOpenedFilesTask extends DefaultTask {
             // e.g. "/Users/cwardgar/dev/projects/thredds2/cdm/src/test/java/ucar/ma2/ArrayTest.java"
             String absolutePath = FilenameUtils.separatorsToUnix(it.absolutePath)
 
-            Matcher matcher = srcFilePathPattern.matcher(absolutePath)
+            Matcher matcher = absolutePath =~ srcFilePathPattern
             if (matcher.matches()) {
                 // e.g. "ucar/ma2/ArrayTest.java"
                 String srcFileRelPath = matcher.group(3);
