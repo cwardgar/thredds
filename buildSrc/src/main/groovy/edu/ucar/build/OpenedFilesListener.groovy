@@ -93,6 +93,10 @@ public class OpenedFilesListener extends ActivityListener {
     public OpenedFilesListener(Path reportFile) throws IOException {
         Objects.requireNonNull(reportFile, "reportFile must be non-null");
 
+        // We're opening channel with StandardOpenOption.CREATE, but that will only create a non-existent file, not
+        // the file's non-existent parent directory.
+        Files.createDirectories(reportFile.getParent());
+
         // Use a single worker thread operating off an unbounded queue for all writes. This class is heavily I/O-bound,
         // so using a pool with more than one thread wouldn't provide any benefit. Furthermore, such a pool couldn't
         // guarantee that tasks are executed sequentially, which we need for our writes to the output stream.

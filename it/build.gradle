@@ -1,3 +1,8 @@
+import edu.ucar.build.OpenedFilesListener
+import edu.ucar.build.tasks.FilterOpenedFilesTask
+import org.gradle.api.internal.changedetection.TaskArtifactState
+import org.gradle.api.internal.changedetection.TaskArtifactStateRepository
+
 description = "TDS - NetCDF-Java library integration Test module. This module contains all classes and settings " +
         "needed to test the NetCDF-Java library in a servlet container. Starts up a TDS server and then sends " +
         "requests to it. Relies on having access to cdmUnitTest directory, so can only be run at Unidata."
@@ -103,9 +108,6 @@ task integrationTestReport(type: JacocoReport, dependsOn: "integrationTest") {
     }
 }
 
-import org.gradle.api.internal.changedetection.TaskArtifactStateRepository
-import org.gradle.api.internal.changedetection.TaskArtifactState
-
 // We want to modify the "appBeforeIntegrationTest" and "appAfterIntegrationTest" tasks, but like all Gretty tasks,
 // they won't be added to the project until after evaluation: http://goo.gl/qlFXTD
 // So, our modifications must also occur after evaluation.
@@ -151,5 +153,46 @@ afterEvaluate {
     appAfterIntegrationTest {
         // Only run if appBeforeIntegrationTest did work.
         onlyIf { tasks.appBeforeIntegrationTest.getDidWork() }
+    }
+}
+
+/////////////////////////// cdmUnitTest/ opened-files report ///////////////////////////
+
+configurations {
+    testAgent { transitive = false }
+}
+
+dependencies {
+    testAgent libraries["file-leak-detector-fatJar"]  // See note about this in testing.gradle.
+    gretty rootProject.files('buildSrc/build/classes/main')
+}
+
+File openedFilesReport = file("${testReportDir}/opened-files-report-server.ser.gz")
+gretty.systemProperties[OpenedFilesListener.REPORT_FILE_KEY] = openedFilesReport
+
+task filterOpenedFilesServer(type: FilterOpenedFilesTask, group: 'Verification') {
+    unfilteredRecordsFile = openedFilesReport
+    hitsDestFile   = file("${testReportDir}/opened-files-report-server-hits.txt")
+    missesDestFile = file("${testReportDir}/opened-files-report-server-misses.txt")
+
+    addOpenedFilesToReportOn fileTree(new File(System.properties[testdataDirKey]))
+
+    addSourceFilesToReportOn rootProject.project('tds').sourceSets.main.java.matching {
+        // Most dataset requests go through thredds.core.DatasetManager, but not all.
+        // Could be an interesting instrumentation point though.
+        // include '**/DatasetManager.java'
+
+        include '**/thredds/server/**/*.java'  // Only report on classes in the 'thredds.server' package.
+    }
+
+    openedFilesIgnorePatterns << ~/.+\.jar$/
+    openedFilesIgnorePatterns << ~/.+\.class$/
+}
+
+afterEvaluate {
+    // This task starts the embedded Tomcat server. It's expensive to do.
+    appBeforeIntegrationTest {
+        jvmArgs "-javaagent:${configurations.testAgent.singleFile}=" +
+                "listener=${OpenedFilesListener.name}"  // From :buildSrc
     }
 }
