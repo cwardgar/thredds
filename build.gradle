@@ -61,11 +61,12 @@ buildscript {
 }
 
 apply from: "$rootDir/gradle/dependencies.gradle"
+apply from: "$rootDir/gradle/java.gradle"
+apply from: "$rootDir/gradle/archiving.gradle"
 
 apply from: "$rootDir/gradle/testing.gradle"
-apply from: "$rootDir/gradle/java.gradle"
 apply from: "$rootDir/gradle/coverage.gradle"
-apply from: "$rootDir/gradle/archiving.gradle"
+apply from: "$rootDir/gradle/openedFiles.gradle"  // Order dependency: uses configuration from testing.gradle.
 
 // Order dependency: publishing.gradle creates publications for artifacts created in fatJars.gradle.
 apply from: "$rootDir/gradle/fatJars.gradle"

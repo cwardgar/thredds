@@ -20,8 +20,8 @@ import java.util.zip.GZIPInputStream
 class FilterOpenedFilesTask extends DefaultTask {
     static Logger log = LoggerFactory.getLogger(FilterOpenedFilesTask)
 
-    @InputFile
-    File unfilteredRecordsFile
+    @InputFiles
+    List<File> recordsFiles
 
     @Input @Optional
     FileCollection openedFilesToReportOn
@@ -45,67 +45,80 @@ class FilterOpenedFilesTask extends DefaultTask {
         openedFilesToReportOn = project.files()
         sourceFilesToReportOn = project.files()
 
+        recordsFiles = []
         openedFilesIgnorePatterns = []
 
         onlyIf {
-            if (unfilteredRecordsFile.exists()) {
+            if (recordsFiles) {
                 true
             } else {
-                log.info "Skipping $name because unfiltered record file doesn't exist: $unfilteredRecordsFile"
+                log.warn "Must specify at least one unfiltered records file."
                 false
             }
         }
     }
 
-    void addOpenedFilesToReportOn(Object... paths) {
+    void filter(File recordsFile) {
+        this.recordsFiles << recordsFile
+    }
+
+    void filter(List<File> recordsFiles) {
+        this.recordsFiles.addAll recordsFiles
+    }
+
+    void reportOnOpenedFiles(Object... paths) {
         openedFilesToReportOn = openedFilesToReportOn + project.files(paths)
     }
 
-    void addSourceFilesToReportOn(Object... paths) {
+    void reportOnSourceFiles(Object... paths) {
         sourceFilesToReportOn = sourceFilesToReportOn + project.files(paths)
     }
 
     @TaskAction
-    def filter() {
+    def doFilter() {
+        int numRecords = 0
         Set<String> classNames = getFullyQualifiedClassNames(sourceFilesToReportOn)
 
-        new ObjectInputStream(new GZIPInputStream(unfilteredRecordsFile.newInputStream())).withCloseable {
-            hitsDestFile.withPrintWriter { PrintWriter hitsWriter ->
-                missesDestFile.withPrintWriter { PrintWriter missesWriter ->
-                    int numRecords = 0
+        hitsDestFile.withPrintWriter { PrintWriter hitsWriter ->
+            missesDestFile.withPrintWriter { PrintWriter missesWriter ->
+                recordsFiles.each { File recordsFile ->
+                    new ObjectInputStream(new GZIPInputStream(recordsFile.newInputStream())).withCloseable {
+                        while (true) {
+                            try {
+                                File file = it.readObject() as File
+                                StackTraceElement[] stackFrames = it.readObject() as StackTraceElement[]
+                                StackTraceElement stackFrame = findNearestMethodCallFromOneOf(stackFrames, classNames)
 
-                    for (; true; ++numRecords) {
-                        try {
-                            File file = it.readObject() as File
-                            StackTraceElement[] stackFrames = it.readObject() as StackTraceElement[]
-                            StackTraceElement stackFrame = findNearestMethodCallFromOneOf(stackFrames, classNames)
-
-                            if (fileMatchesIgnorePattern(file)) {
-                                continue  // Don't record a hit or miss for ignored files.
-                            } else if (stackFrame != null && openedFilesToReportOn.contains(file)) {
-                                hitsWriter.printf("%s,%s.%s%n", file, stackFrame.className, stackFrame.methodName)
-                            } else {
-                                missesWriter.println file
-
-                                if (stackFrame != null) {
-                                    // If we've identified a frame-of-interest, print only that frame.
-                                    missesWriter.print "\tat $stackFrame\n"
+                                if (fileMatchesIgnorePattern(file)) {
+                                    continue // Don't record a hit or miss for ignored files.
+                                } else if (stackFrame != null && openedFilesToReportOn.contains(file)) {
+                                    hitsWriter.println "${file},${stackFrame.className}.${stackFrame.methodName}"
                                 } else {
-                                    // Otherwise print the entire stack trace.
-                                    stackFrames.each {
-                                        missesWriter.print "\tat $it\n"
+                                    missesWriter.println file
+
+                                    if (stackFrame != null) {
+                                        // If we've identified a frame-of-interest, print only that frame.
+                                        missesWriter.println "\tat $stackFrame"
+                                    } else {
+                                        // Otherwise print the entire stack trace.
+                                        stackFrames.each {
+                                            missesWriter.println "\tat $it"
+                                        }
                                     }
                                 }
+                            } catch (EOFException e) {
+                                // This is the only way to detect EOF.
+                                break
                             }
-                        } catch (EOFException e) {  // This is the only way to detect EOF.
-                            break
+
+                            ++numRecords
                         }
                     }
-
-                    log.info "Deserialized $numRecords records"
                 }
             }
         }
+
+        log.info "Deserialized $numRecords records."
     }
 
     /**
