@@ -158,26 +158,28 @@ afterEvaluate {
 
 /////////////////////////// cdmUnitTest/ opened-files report ///////////////////////////
 
-configurations {
-    testAgent { transitive = false }
-}
+// Using testAgent configuration and testdataDirKey property, both defined in openedFiles.gradle.
+// ORDER DEPENDENCY: testing.gradle must be applied before this build script.
 
 dependencies {
-    testAgent libraries["file-leak-detector-fatJar"]  // See note about this in testing.gradle.
+    // Embedded test server needs OpenedFilesListener on the classpath.
     gretty rootProject.files('buildSrc/build/classes/main')
 }
 
 File openedFilesReport = file("${testReportDir}/opened-files-report-server.ser.gz")
 gretty.systemProperties[OpenedFilesListener.REPORT_FILE_KEY] = openedFilesReport
 
-task filterOpenedFilesServer(type: FilterOpenedFilesTask, group: 'Verification') {
-    unfilteredRecordsFile = openedFilesReport
+task filterFilesOpenedByTestServer(type: FilterOpenedFilesTask, group: 'Verification') {
+    filter openedFilesReport
+
     hitsDestFile   = file("${testReportDir}/opened-files-report-server-hits.txt")
     missesDestFile = file("${testReportDir}/opened-files-report-server-misses.txt")
 
-    addOpenedFilesToReportOn fileTree(new File(System.properties[testdataDirKey]))
+    if (isCdmUnitTestDirAvailable) {
+        reportOnOpenedFiles fileTree(new File(System.properties[testdataDirKey]))
+    }
 
-    addSourceFilesToReportOn rootProject.project('tds').sourceSets.main.java.matching {
+    reportOnSourceFiles rootProject.project('tds').sourceSets.main.java.matching {
         // Most dataset requests go through thredds.core.DatasetManager, but not all.
         // Could be an interesting instrumentation point though.
         // include '**/DatasetManager.java'
