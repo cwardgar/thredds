@@ -13,6 +13,7 @@ import ucar.nc2.time.CalendarDateRange
 import ucar.nc2.time.CalendarDateUnit
 import ucar.unidata.geoloc.LatLonPointImpl
 import ucar.unidata.geoloc.LatLonRect
+import ucar.unidata.util.point.PointTestUtil
 
 /**
  * @author cwardgar
@@ -21,7 +22,7 @@ import ucar.unidata.geoloc.LatLonRect
 class PointIteratorFilteredSpec extends Specification {
     def "space and time filter"() {
         setup: "feature dataset"
-        FeatureDatasetPoint fdPoint = PointTestUtil.openPointDataset("pointsToFilter.ncml")
+        FeatureDatasetPoint fdPoint = PointTestUtil.openClassResourceAsPointDataset(getClass(), "pointsToFilter.ncml")
 
         and: "bouding box"
         double latMin = +10.0

@@ -1,6 +1,7 @@
 package ucar.nc2.ft.point;
 
 import com.google.common.base.Preconditions;
+import ucar.nc2.Variable;
 import ucar.nc2.constants.FeatureType;
 import ucar.nc2.ft.PointFeature;
 import ucar.nc2.ft.PointFeatureCollection;
@@ -200,6 +201,12 @@ public class SortingPointFeatureCollection implements PointFeatureCollection {
     @Override
     public String getAltUnits() {
         return delegate.getAltUnits();
+    }
+
+    @Nullable
+    @Override
+    public List<Variable> getExtraVariables() {
+        return new ArrayList<>();
     }
 
     @Nullable

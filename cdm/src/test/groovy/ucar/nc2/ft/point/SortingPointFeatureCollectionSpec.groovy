@@ -10,6 +10,7 @@ import ucar.nc2.ft.DsgFeatureCollection
 import ucar.nc2.ft.FeatureDatasetPoint
 import ucar.nc2.ft.PointFeatureCollection
 import ucar.nc2.time.CalendarDateUnit
+import ucar.unidata.util.point.PointTestUtil
 
 /**
  * @author cwardgar
@@ -65,7 +66,7 @@ class SortingPointFeatureCollectionSpec extends Specification {
     @IgnoreRest
     def "test2"() {
         setup: "Open test file and flatten the PFCs within"
-        FeatureDatasetPoint fdPoint = PointTestUtil.openPointDataset("orthogonal.ncml")
+        FeatureDatasetPoint fdPoint = PointTestUtil.openClassResourceAsPointDataset(getClass(), "orthogonal.ncml")
         FlattenedPointCollection flattenedPfc = new FlattenedPointCollection(fdPoint.getPointFeatureCollectionList())
 
         and: "Create comparator that will sort elements in reverse order of station name."

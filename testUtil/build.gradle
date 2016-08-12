@@ -1,7 +1,10 @@
 description = "A collection of reusable classes to be used in testing."
 ext.title = "Testing utilities"
 
+apply plugin: 'groovy'
+
 dependencies {
+    compile libraries["groovy-all"]
     compile project(":cdm")
     compile libraries["junit"]
 }

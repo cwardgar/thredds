@@ -1,4 +1,4 @@
-package ucar.nc2.ft.point
+package ucar.unidata.util.point
 
 import org.codehaus.groovy.runtime.IOGroovyMethods
 import ucar.ma2.Array
@@ -6,13 +6,9 @@ import ucar.ma2.MAMath
 import ucar.ma2.StructureData
 import ucar.ma2.StructureMembers
 import ucar.nc2.constants.FeatureType
-import ucar.nc2.ft.DsgFeatureCollection
-import ucar.nc2.ft.FeatureDatasetFactoryManager
-import ucar.nc2.ft.FeatureDatasetPoint
-import ucar.nc2.ft.NoFactoryFoundException
-import ucar.nc2.ft.PointFeature
-import ucar.nc2.ft.PointFeatureCollection
-import ucar.nc2.ft.PointFeatureIterator
+import ucar.nc2.ft.*
+import ucar.nc2.ft.point.StationFeature
+import ucar.nc2.ft.point.StationPointFeature
 import ucar.unidata.geoloc.EarthLocation
 import ucar.unidata.geoloc.Station
 
@@ -21,14 +17,16 @@ import ucar.unidata.geoloc.Station
  * @since 2015-10-26
  */
 class PointTestUtil {
-    // Can be used to open datasets in /thredds/cdm/src/test/resources/ucar/nc2/ft/point
-    public static FeatureDatasetPoint openPointDataset(String resource)
+    public static FeatureDatasetPoint openClassResourceAsPointDataset(Class<?> clazz, String resource)
             throws IOException, NoFactoryFoundException, URISyntaxException {
-        File file = new File(PointTestUtil.class.getResource(resource).toURI());
-        return (FeatureDatasetPoint) FeatureDatasetFactoryManager.open(
-                FeatureType.ANY_POINT, file.getAbsolutePath(), null, new Formatter());
+        File file = new File(clazz.getResource(resource).toURI());
+        return openPointDataset(file.getAbsolutePath());
     }
-
+    
+    public static FeatureDatasetPoint openPointDataset(String location) throws IOException, NoFactoryFoundException {
+        return (FeatureDatasetPoint) FeatureDatasetFactoryManager.open(
+                FeatureType.ANY_POINT, location, null, new Formatter());
+    }
 
     static void assertEquals(PointFeatureCollection featCol1, PointFeatureCollection featCol2) throws IOException {
         if (featCol1.is(featCol2)) {

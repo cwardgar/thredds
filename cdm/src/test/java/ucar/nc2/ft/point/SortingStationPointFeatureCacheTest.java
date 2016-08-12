@@ -1,14 +1,5 @@
 package ucar.nc2.ft.point;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedList;
-import java.util.List;
 import com.google.common.collect.Ordering;
 import org.junit.Assert;
 import org.junit.Test;
@@ -20,6 +11,12 @@ import ucar.nc2.ft.FeatureDatasetPoint;
 import ucar.nc2.ft.NoFactoryFoundException;
 import ucar.nc2.ft.PointFeatureIterator;
 import ucar.nc2.time.CalendarDateUnit;
+import ucar.unidata.util.point.PointTestUtil;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.*;
 
 public class SortingStationPointFeatureCacheTest {
     @Test
@@ -103,8 +100,10 @@ public class SortingStationPointFeatureCacheTest {
         };
         SortingStationPointFeatureCache cache = new SortingStationPointFeatureCache(longestStationNameFirst);
         
-        try (FeatureDatasetPoint fdInput = PointTestUtil.openPointDataset("cacheTestInput1.ncml");
-                FeatureDatasetPoint fdExpected = PointTestUtil.openPointDataset("cacheTestExpected1.ncml")) {
+        try (   FeatureDatasetPoint fdInput =
+                        PointTestUtil.openClassResourceAsPointDataset(getClass(), "cacheTestInput1.ncml");
+                FeatureDatasetPoint fdExpected =
+                        PointTestUtil.openClassResourceAsPointDataset(getClass(), "cacheTestExpected1.ncml")) {
             cache.addAll(fdInput);
 
             PointFeatureIterator pointIterExpected =
