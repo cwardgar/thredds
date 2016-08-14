@@ -32,9 +32,10 @@
  */
 package ucar.ma2;
 
-import java.util.Arrays;
-
 import ucar.nc2.util.Misc;
+
+import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Element by element algebra on Arrays
@@ -836,43 +837,25 @@ public class MAMath {
 
     IndexIterator iter1 = array1.getIndexIterator();
     IndexIterator iter2 = array2.getIndexIterator();
-    DataType dt = array1.getDataType();
 
-    if (dt == DataType.DOUBLE) {
-      while (iter1.hasNext() && iter2.hasNext()) {
-        if (iter1.getIntNext() != iter2.getIntNext()) {
-          return false;
-        }
-      }
-    } else if (dt == DataType.FLOAT) {
-      while (iter1.hasNext() && iter2.hasNext()) {
-        if (iter1.getFloatNext() != iter2.getFloatNext()) {
-          return false;
-        }
-      }
-    } else if (dt.getPrimitiveClassType() == int.class) {
-      while (iter1.hasNext() && iter2.hasNext()) {
-        if (iter1.getIntNext() != iter2.getIntNext()) {
-          return false;
-        }
-      }
-    } else if (dt.getPrimitiveClassType() == byte.class) {
-      while (iter1.hasNext() && iter2.hasNext()) {
-        if (iter1.getShortNext() != iter2.getShortNext()) {
-          return false;
-        }
-      }
-    } else if (dt.getPrimitiveClassType() == short.class) {
-      while (iter1.hasNext() && iter2.hasNext()) {
-        if (iter1.getByteNext() != iter2.getByteNext()) {
-          return false;
-        }
-      }
-    } else if (dt.getPrimitiveClassType() == long.class) {
-      while (iter1.hasNext() && iter2.hasNext()) {
-        if (iter1.getLongNext() != iter2.getLongNext()) {
-          return false;
-        }
+    while (iter1.hasNext() && iter2.hasNext()) {
+      switch (array1.getDataType()) {
+        case BOOLEAN: return iter1.getBooleanNext() == iter2.getBooleanNext();
+        case BYTE:
+        case ENUM1:
+        case UBYTE:   return iter1.getByteNext() == iter2.getByteNext();
+        case CHAR:    return iter1.getCharNext() == iter2.getCharNext();
+        case SHORT:
+        case ENUM2:
+        case USHORT:  return iter1.getShortNext() == iter2.getShortNext();
+        case INT:
+        case ENUM4:
+        case UINT:    return iter1.getIntNext() == iter2.getIntNext();
+        case LONG:
+        case ULONG:   return iter1.getLongNext() == iter2.getLongNext();
+        case FLOAT:   return iter1.getFloatNext() == iter2.getFloatNext();
+        case DOUBLE:  return iter1.getDoubleNext() == iter2.getDoubleNext();
+        default:      return Objects.equals(iter1.getObjectNext(), iter2.getObjectNext());
       }
     }
 

@@ -40,12 +40,8 @@ public class SortingStationPointFeatureCacheTest {
         spfList.add(makeStationPointFeature(dummyDsg, stationFeat, timeUnit, 30, 30, 118));
         spfList.add(makeStationPointFeature(dummyDsg, stationFeat, timeUnit, 40, 40, 110));
 
-        Comparator<StationPointFeature> revObsTimeComp = new Comparator<StationPointFeature>() {
-            @Override
-            public int compare(StationPointFeature left, StationPointFeature right) {
-                return -Double.compare(left.getObservationTime(), right.getObservationTime());
-            }
-        };
+        Comparator<StationPointFeature> revObsTimeComp =
+                (left, right) -> -Double.compare(left.getObservationTime(), right.getObservationTime());
         
         SortingStationPointFeatureCache cache = new SortingStationPointFeatureCache(revObsTimeComp);
 

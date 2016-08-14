@@ -1,6 +1,5 @@
 package ucar.unidata.util.point
 
-import org.codehaus.groovy.runtime.IOGroovyMethods
 import ucar.ma2.Array
 import ucar.ma2.MAMath
 import ucar.ma2.StructureData
@@ -32,14 +31,12 @@ class PointTestUtil {
         if (featCol1.is(featCol2)) {
             return
         }
-
-        assert featCol1 && featCol2
-
+        
         // We must do this comparison first because some DsgFeatureCollection implementations, e.g.
         // PointCollectionStreamAbstract, won't have final values for getCalendarDateRange(), getBoundingBox(), and
         // size() until after iterating through the collection.
-        IOGroovyMethods.withCloseable(featCol1.pointFeatureIterator) { PointFeatureIterator pfIter1 ->
-            IOGroovyMethods.withCloseable(featCol2.pointFeatureIterator) { PointFeatureIterator pfIter2 ->
+        for (PointFeatureIterator pfIter1 : featCol1) {
+            for (PointFeatureIterator pfIter2 : featCol2) {
                 assertEquals pfIter1, pfIter2
             }
         }
@@ -52,7 +49,6 @@ class PointTestUtil {
             return
         }
 
-        assert dsgFeatCol1 && dsgFeatCol2
         assert dsgFeatCol1.collectionFeatureType == dsgFeatCol2.collectionFeatureType
         assert dsgFeatCol1.timeUnit == dsgFeatCol2.timeUnit
         assert dsgFeatCol1.altUnits == dsgFeatCol2.altUnits
@@ -77,7 +73,6 @@ class PointTestUtil {
             println it
         }
 
-        assert iterable1 && iterable2
         assertEquals iterable1.iterator(), iterable2.iterator()
     }
 
@@ -86,7 +81,6 @@ class PointTestUtil {
             return
         }
 
-        assert iter1 && iter2
         while (iter1.hasNext() && iter2.hasNext()) {
             assertEquals iter1.next(), iter2.next()
         }
@@ -102,7 +96,6 @@ class PointTestUtil {
             return
         }
 
-        assert stationPointFeat1 && stationPointFeat2
         assertEquals stationPointFeat1 as PointFeature, stationPointFeat2 as PointFeature
         assertEquals stationPointFeat1.station, stationPointFeat2.station
     }
@@ -112,7 +105,6 @@ class PointTestUtil {
             return
         }
 
-        assert stationFeat1 && stationFeat2
         assertEquals stationFeat1 as Station, stationFeat2 as Station
         assertEquals stationFeat1.featureData, stationFeat2.featureData
     }
@@ -122,7 +114,6 @@ class PointTestUtil {
             return
         }
 
-        assert station1 && station2
         assertEquals station1 as EarthLocation, station2 as EarthLocation
         assert station1.name == station2.name
         assert station1.wmoId == station2.wmoId
@@ -138,7 +129,6 @@ class PointTestUtil {
             return
         }
 
-        assert pointFeat1 && pointFeat2
         assertEquals pointFeat1.location, pointFeat2.location
         assert pointFeat1.observationTime == pointFeat2.observationTime
         assert pointFeat1.nominalTime == pointFeat2.nominalTime
@@ -155,7 +145,6 @@ class PointTestUtil {
             return
         }
 
-        assert loc1 && loc2
         assert loc1.latitude == loc2.latitude
         assert loc1.longitude == loc2.longitude
         assert loc1.altitude == loc2.altitude
@@ -168,7 +157,6 @@ class PointTestUtil {
             return
         }
 
-        assert sdata1 && sdata2
         assertEquals sdata1.structureMembers, sdata2.structureMembers
 
         sdata1.structureMembers.memberNames.each {
@@ -184,7 +172,6 @@ class PointTestUtil {
             return
         }
 
-        assert members1 && members2
         assert members1.structureSize == members2.structureSize
         assertEquals members1.members, members2.members
         // StructureMembers.getName() will be different depending on the machinery that created the Structure,
@@ -197,7 +184,6 @@ class PointTestUtil {
             return
         }
 
-        assert membersList1 && membersList2
         assert membersList1.size() == membersList2.size()
 
         ListIterator<StructureMembers.Member> membersIter1 = membersList1.listIterator();
@@ -213,7 +199,6 @@ class PointTestUtil {
             return;
         }
 
-        assert member1 && member2
         assert member1.name == member2.name
         assert member1.description == member2.description
         assert member1.unitsString == member2.unitsString
