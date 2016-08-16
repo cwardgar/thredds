@@ -33,41 +33,15 @@
 
 package ucar.nc2.ft.point.standard;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Formatter;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import ucar.ma2.Array;
-import ucar.ma2.ArrayChar;
-import ucar.ma2.ArraySequence;
-import ucar.ma2.ArrayStructure;
-import ucar.ma2.ArrayStructureMA;
-import ucar.ma2.ArrayStructureW;
-import ucar.ma2.DataType;
-import ucar.ma2.InvalidRangeException;
-import ucar.ma2.Section;
-import ucar.ma2.StructureData;
-import ucar.ma2.StructureDataIterator;
-import ucar.ma2.StructureDataIteratorMediated;
-import ucar.ma2.StructureDataMediator;
-import ucar.ma2.StructureDataProxy;
-import ucar.ma2.StructureDataW;
-import ucar.ma2.StructureMembers;
+import ucar.ma2.*;
 import ucar.nc2.*;
 import ucar.nc2.constants.FeatureType;
-import ucar.nc2.dataset.NetcdfDataset;
-import ucar.nc2.dataset.StructureDS;
-import ucar.nc2.dataset.StructurePseudo2Dim;
-import ucar.nc2.dataset.StructurePseudoDS;
-import ucar.nc2.dataset.VariableDS;
+import ucar.nc2.dataset.*;
 import ucar.nc2.ft.point.StructureDataIteratorIndexed;
 import ucar.nc2.ft.point.StructureDataIteratorLinked;
+
+import java.io.IOException;
+import java.util.*;
 
 /**
  * A generalization of a Structure. Main function is to return a StructureDataIterator,
@@ -744,7 +718,7 @@ public abstract class Table {
 
   // the inner struct of a 2D multdim(outer, inner) with unlimited dimension
   public static class TableMultidimInner extends Table {
-    StructureMembers sm; // the inner structure members
+    StructureMembers members; // the inner structure members
     Dimension inner, outer;
     NetcdfDataset ds;
 
@@ -758,7 +732,7 @@ public abstract class Table {
       assert this.inner != null : config.innerName;
       assert this.outer != null : config.outerName;
 
-      sm = new StructureMembers(config.name);
+      members = new StructureMembers(config.name);
       if (config.vars != null) {
         for (String name : config.vars) {
           Variable v = ds.findVariable(name);
@@ -767,7 +741,7 @@ public abstract class Table {
           int rank = v.getRank();
           int[] shape = new int[rank - 2];
           System.arraycopy(v.getShape(), 2, shape, 0, rank - 2);
-          sm.addMember(v.getShortName(), v.getDescription(), v.getUnitsString(), v.getDataType(), shape);
+          members.addMember(v.getShortName(), v.getDescription(), v.getUnitsString(), v.getDataType(), shape);
           this.cols.put(v.getShortName(), v);
         }
 
@@ -779,18 +753,18 @@ public abstract class Table {
             int rank = v.getRank();
             int[] shape = new int[rank - 2];
             System.arraycopy(v.getShape(), 2, shape, 0, rank - 2);
-            sm.addMember(v.getShortName(), v.getDescription(), v.getUnitsString(), v.getDataType(), shape);
+            members.addMember(v.getShortName(), v.getDescription(), v.getUnitsString(), v.getDataType(), shape);
             this.cols.put(v.getShortName(), v);
           }
         }
       }
 
-      replaceDataVars(sm);
+      replaceDataVars(members);
     }
 
     @Override
     protected void showTableExtraInfo(String indent, Formatter f) {
-      f.format("%sStructureMembers=%s, dim=%s,%s%n", indent, sm.getName(), outer.getShortName(), inner.getShortName());
+      f.format("%sStructureMembers=%s, dim=%s,%s%n", indent, members.getName(), outer.getShortName(), inner.getShortName());
     }
 
     @Override
@@ -808,12 +782,16 @@ public abstract class Table {
       StructureData parentStruct = cursor.getParentStructure();
       if (parentStruct instanceof StructureDataProxy)
         parentStruct = ((StructureDataProxy) parentStruct).getOriginalStructureData(); // tricky dicky
-      ArrayStructureMA asma = new ArrayStructureMA(sm, new int[]{inner.getLength()});
+
+      StructureMembers membersWithData = new StructureMembers(members);
+
       for (String colName : cols.keySet()) {
         Array data = parentStruct.getArray(colName);
-        StructureMembers.Member childm = sm.findMember(colName);
+        StructureMembers.Member childm = membersWithData.findMember(colName);
         childm.setDataArray(data);
       }
+
+      ArrayStructureMA asma = new ArrayStructureMA(membersWithData, new int[]{inner.getLength()});
       return asma.getStructureDataIterator();
     }
 
@@ -824,7 +802,7 @@ public abstract class Table {
   }
 
   public static class TableMultidimInner3D extends Table {
-    StructureMembers sm; // the inner structure members
+    StructureMembers members; // the inner structure members
     Dimension dim, inner, middle;
     NetcdfDataset ds;
 
@@ -838,7 +816,7 @@ public abstract class Table {
       this.inner = ds.findDimension(config.innerName);
       this.middle = ds.findDimension(config.outerName);
 
-      sm = new StructureMembers(config.name);
+      members = new StructureMembers(config.name);
       if (config.vars != null) {
         for (String name : config.vars) {
           Variable v = ds.findVariable(name);
@@ -847,7 +825,7 @@ public abstract class Table {
           int rank = v.getRank();
           int[] shape = new int[rank - 3];
           System.arraycopy(v.getShape(), 3, shape, 0, rank - 3);
-          sm.addMember(v.getShortName(), v.getDescription(), v.getUnitsString(), v.getDataType(), shape);
+          members.addMember(v.getShortName(), v.getDescription(), v.getUnitsString(), v.getDataType(), shape);
           this.cols.put(v.getShortName(), v);
         }
 
@@ -859,18 +837,18 @@ public abstract class Table {
             int rank = v.getRank();
             int[] shape = new int[rank - 3];
             System.arraycopy(v.getShape(), 3, shape, 0, rank - 3);
-            sm.addMember(v.getShortName(), v.getDescription(), v.getUnitsString(), v.getDataType(), shape);
+            members.addMember(v.getShortName(), v.getDescription(), v.getUnitsString(), v.getDataType(), shape);
             this.cols.put(v.getShortName(), v);
           }
         }
       }
 
-      replaceDataVars(sm);
+      replaceDataVars(members);
     }
 
     @Override
     protected void showTableExtraInfo(String indent, Formatter f) {
-      f.format("%sStructureMembers=%s, dim=%s%n", indent, sm.getName(), dim.getShortName());
+      f.format("%sStructureMembers=%s, dim=%s%n", indent, members.getName(), dim.getShortName());
     }
 
     @Override
@@ -888,14 +866,18 @@ public abstract class Table {
       StructureData parentStruct = cursor.tableData[2];
       if (parentStruct instanceof StructureDataProxy)
         parentStruct = ((StructureDataProxy) parentStruct).getOriginalStructureData(); // tricky dicky
+
       int middleIndex = cursor.recnum[1];
-      ArrayStructureMA asma = new ArrayStructureMA(sm, new int[]{inner.getLength()});
+      StructureMembers membersWithData = new StructureMembers(members);
+
       for (String colName : cols.keySet()) {
         Array data = parentStruct.getArray(colName);
         Array myData = data.slice(0, middleIndex);
-        StructureMembers.Member childm = sm.findMember(colName);
+        StructureMembers.Member childm = membersWithData.findMember(colName);
         childm.setDataArray(myData.copy());           // must make copy - ArrayStucture doesnt deal with logical views
       }
+
+      ArrayStructureMA asma = new ArrayStructureMA(membersWithData, new int[]{inner.getLength()});
       return asma.getStructureDataIterator();
     }
 
@@ -916,7 +898,7 @@ public abstract class Table {
    */
   public static class TableMultidimInnerPsuedo extends Table.TableStructure {
     Dimension inner, outer;
-    StructureMembers sm;
+    StructureMembers members;
 
     TableMultidimInnerPsuedo(NetcdfDataset ds, TableConfig config) {
       super(ds, config);
@@ -925,15 +907,15 @@ public abstract class Table {
       this.inner = ds.findDimension(config.innerName);
       this.outer = ds.findDimension(config.outerName);
 
-      sm = new StructureMembers(config.name);
+      members = new StructureMembers(config.name);
       for (Variable v : struct.getVariables()) {
         int rank = v.getRank();
         int[] shape = new int[rank - 1];
         System.arraycopy(v.getShape(), 1, shape, 0, rank - 1);
-        sm.addMember(v.getShortName(), v.getDescription(), v.getUnitsString(), v.getDataType(), shape);
+        members.addMember(v.getShortName(), v.getDescription(), v.getUnitsString(), v.getDataType(), shape);
       }
 
-      replaceDataVars(sm);
+      replaceDataVars(members);
     }
 
     @Override
@@ -941,14 +923,16 @@ public abstract class Table {
       int recnum = cursor.recnum[ cursor.currentIndex]; // LOOK
       try {
         StructureData parentStruct = struct.readStructure(recnum);
-        ArrayStructureMA asma = new ArrayStructureMA(sm, new int[]{inner.getLength()});
+        StructureMembers membersWithData = new StructureMembers(members);
+
         for (String colName : cols.keySet()) {
           Array data = parentStruct.getArray(colName);
-          StructureMembers.Member childm = sm.findMember(colName);
+          StructureMembers.Member childm = membersWithData.findMember(colName);
           childm.setDataArray(data);
         }
-        return asma.getStructureDataIterator();
 
+        ArrayStructureMA asma = new ArrayStructureMA(membersWithData, new int[]{inner.getLength()});
+        return asma.getStructureDataIterator();
       } catch (InvalidRangeException e) {
         throw new IllegalStateException(e);
       }
@@ -964,7 +948,7 @@ public abstract class Table {
   public static class TableMultidimInnerPsuedo3D extends Table.TableStructure {
     Dimension middle;
     Dimension inner;
-    StructureMembers sm;
+    StructureMembers members;
 
     TableMultidimInnerPsuedo3D(NetcdfDataset ds, TableConfig config) {
       super(ds, config);
@@ -975,15 +959,15 @@ public abstract class Table {
       this.middle = ds.findDimension(config.outerName);
       this.inner = ds.findDimension(config.innerName);
 
-      sm = new StructureMembers(config.name);
+      members = new StructureMembers(config.name);
       for (Variable v : struct.getVariables()) {
         int rank = v.getRank();
         int[] shape = new int[rank - 1];
         System.arraycopy(v.getShape(), 1, shape, 0, rank - 1);
-        sm.addMember(v.getShortName(), v.getDescription(), v.getUnitsString(), v.getDataType(), shape);
+        members.addMember(v.getShortName(), v.getDescription(), v.getUnitsString(), v.getDataType(), shape);
       }
 
-      replaceDataVars(sm);
+      replaceDataVars(members);
     }
 
     @Override
@@ -995,14 +979,16 @@ public abstract class Table {
         ArrayStructure result = (ArrayStructure) struct.read(s);
         assert result.getSize() == 1;
         StructureData sdata = result.getStructureData(0); // should only be one
-        ArrayStructureMA asma = new ArrayStructureMA(sm, new int[]{inner.getLength()});
+        StructureMembers membersWithData = new StructureMembers(members);
+
         for (String colName : cols.keySet()) {
           Array data = sdata.getArray(colName);
-          StructureMembers.Member childm = sm.findMember(colName);
+          StructureMembers.Member childm = membersWithData.findMember(colName);
           childm.setDataArray(data);
         }
-        return asma.getStructureDataIterator();
 
+        ArrayStructureMA asma = new ArrayStructureMA(membersWithData, new int[]{inner.getLength()});
+        return asma.getStructureDataIterator();
       } catch (InvalidRangeException e) {
         throw new IllegalStateException(e);
       }
