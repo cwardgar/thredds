@@ -1,5 +1,6 @@
 package ucar.unidata.util.point
 
+import org.codehaus.groovy.runtime.IOGroovyMethods
 import ucar.ma2.Array
 import ucar.ma2.MAMath
 import ucar.ma2.StructureData
@@ -35,8 +36,8 @@ class PointTestUtil {
         // We must do this comparison first because some DsgFeatureCollection implementations, e.g.
         // PointCollectionStreamAbstract, won't have final values for getCalendarDateRange(), getBoundingBox(), and
         // size() until after iterating through the collection.
-        for (PointFeatureIterator pfIter1 : featCol1) {
-            for (PointFeatureIterator pfIter2 : featCol2) {
+        IOGroovyMethods.withCloseable(featCol1.pointFeatureIterator) { PointFeatureIterator pfIter1 ->
+            IOGroovyMethods.withCloseable(featCol2.pointFeatureIterator) { PointFeatureIterator pfIter2 ->
                 assertEquals pfIter1, pfIter2
             }
         }
@@ -63,14 +64,6 @@ class PointTestUtil {
             throws IOException {
         if (iterable1.is(iterable2)) {
             return
-        }
-
-        iterable1.each {
-            println it
-        }
-        println "----"
-        iterable2.each {
-            println it
         }
 
         assertEquals iterable1.iterator(), iterable2.iterator()

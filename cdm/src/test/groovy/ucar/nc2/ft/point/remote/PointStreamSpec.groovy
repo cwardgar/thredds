@@ -1,10 +1,10 @@
 package ucar.nc2.ft.point.remote
 
 import org.apache.commons.io.FilenameUtils
+import org.junit.Rule
+import org.junit.rules.TemporaryFolder
 import spock.lang.Specification
 import spock.lang.Unroll
-import ucar.nc2.constants.FeatureType
-import ucar.nc2.ft.FeatureDatasetFactoryManager
 import ucar.nc2.ft.FeatureDatasetPoint
 import ucar.nc2.ft.PointFeatureCollection
 import ucar.nc2.ft.point.FlattenedPointCollection
@@ -18,13 +18,14 @@ import ucar.unidata.util.test.TestDir
 class PointStreamSpec extends Specification {
     public static final String cfDocDsgExamplesDir = TestDir.cdmLocalTestDataDir + "cfDocDsgExamples/";
     public static final String pointDir = TestDir.cdmLocalTestDataDir + "point/";
+    
+    @Rule TemporaryFolder tempFolder = new TemporaryFolder()
 
     @Unroll  // Method will have its iterations reported independently.
     def "round trip['#location']"() {
         setup:
-        File outFile = File.createTempFile(FilenameUtils.getBaseName(location) + "_", ".bin")
-        FeatureDatasetPoint fdPoint =
-                (FeatureDatasetPoint) FeatureDatasetFactoryManager.open(FeatureType.ANY_POINT, location, null)
+        File outFile = tempFolder.newFile(FilenameUtils.getBaseName(location) + ".bin")
+        FeatureDatasetPoint fdPoint = PointTestUtil.openPointDataset(location)
 
         when:
         PointFeatureCollection origPointCol = new FlattenedPointCollection(fdPoint.pointFeatureCollectionList);
@@ -35,8 +36,9 @@ class PointStreamSpec extends Specification {
         PointTestUtil.assertEquals(origPointCol, roundTrippedPointCol)
 
         cleanup:
+        roundTrippedPointCol.finish()
+        origPointCol.finish()
         fdPoint.close()
-        outFile.delete()
 
         where:
         location << [
