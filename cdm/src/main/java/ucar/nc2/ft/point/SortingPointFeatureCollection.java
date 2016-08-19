@@ -53,9 +53,6 @@ public class SortingPointFeatureCollection implements PointFeatureCollection {
          */
         private SortedMap<PointFeature, List<PointFeature>> inMemCache;
 
-        private StationFeatureCopyFactory stationCopyFactory;
-        private PointFeatureCopyFactory pointCopyFactory;
-
         private Iterator<List<PointFeature>> bucketsIter;
         private Iterator<PointFeature> featsIter;
 
@@ -66,44 +63,19 @@ public class SortingPointFeatureCollection implements PointFeatureCollection {
         }
 
         private void addAllToCache(PointFeatureCollection pfc) throws IOException {
-            try (PointFeatureIterator pfIter = pfc.getPointFeatureIterator()) {
-                while (pfIter.hasNext()) {
-                    addToCache(pfIter.next());
-                }
+            for (PointFeature pointFeat : pfc) {
+                addToCache(pointFeat);
             }
         }
 
         private void addToCache(PointFeature pf) throws IOException {
-            PointFeature pfCopy;
-
-            if (pf instanceof StationPointFeature) {
-                StationPointFeature spf = (StationPointFeature) pf;
-                pfCopy = getStationCopyFactory(spf).deepCopy(spf);
-            } else {
-                pfCopy = getPointCopyFactory(pf).deepCopy(pf);
-            }
-
-            List<PointFeature> bucket = inMemCache.get(pfCopy);
+            List<PointFeature> bucket = inMemCache.get(pf);
             if (bucket == null) {
                 bucket = new LinkedList<>();
-                inMemCache.put(pfCopy, bucket);
+                inMemCache.put(pf, bucket);
             }
 
-            bucket.add(pfCopy);
-        }
-
-        private StationFeatureCopyFactory getStationCopyFactory(StationPointFeature spf) throws IOException {
-            if (stationCopyFactory == null) {
-                stationCopyFactory = new StationFeatureCopyFactory(spf);
-            }
-            return stationCopyFactory;
-        }
-
-        private PointFeatureCopyFactory getPointCopyFactory(PointFeature pf) throws IOException {
-            if (pointCopyFactory == null) {
-                pointCopyFactory = new PointFeatureCopyFactory(pf);
-            }
-            return pointCopyFactory;
+            bucket.add(pf);
         }
 
         @Override
@@ -112,6 +84,7 @@ public class SortingPointFeatureCollection implements PointFeatureCollection {
                 try {
                     init();  // Initializes inMemCache and bucketsIter.
                 } catch (IOException e) {
+                    // TODO: Maybe log error and return false?
                     throw new RuntimeException(e);
                 }
             }
@@ -140,6 +113,7 @@ public class SortingPointFeatureCollection implements PointFeatureCollection {
 
     ////////////////////////////////////////////// PointFeatureCollection //////////////////////////////////////////////
 
+    // TODO: Once this method is called, prohibit any further additions to cache.
     @Override
     public PointFeatureIterator getPointFeatureIterator() throws IOException {
         return new PointIteratorAdapter(new Iter());
@@ -178,6 +152,8 @@ public class SortingPointFeatureCollection implements PointFeatureCollection {
     }
 
     /////////////////////////////////////////////// DsgFeatureCollection ///////////////////////////////////////////////
+
+    // TODO: There often won't be a delegate. Need to reimplement these methods to account for that.
 
     @Nonnull
     @Override
