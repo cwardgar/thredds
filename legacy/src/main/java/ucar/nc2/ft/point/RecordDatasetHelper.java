@@ -33,18 +33,10 @@
 
 package ucar.nc2.ft.point;
 
-import java.io.IOException;
-import java.util.Formatter;
-import java.util.List;
-import javax.annotation.Nonnull;
 import ucar.ma2.DataType;
 import ucar.ma2.StructureData;
 import ucar.ma2.StructureMembers;
-import ucar.nc2.Dimension;
-import ucar.nc2.NetcdfFile;
-import ucar.nc2.Structure;
-import ucar.nc2.Variable;
-import ucar.nc2.VariableSimpleIF;
+import ucar.nc2.*;
 import ucar.nc2.constants.CDM;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.nc2.dataset.StructureDS;
@@ -57,13 +49,12 @@ import ucar.nc2.time.CalendarDate;
 import ucar.nc2.time.CalendarDateFormatter;
 import ucar.nc2.time.CalendarDateUnit;
 import ucar.nc2.units.SimpleUnit;
-import ucar.unidata.geoloc.EarthLocation;
-import ucar.unidata.geoloc.EarthLocationImpl;
-import ucar.unidata.geoloc.LatLonPoint;
-import ucar.unidata.geoloc.LatLonPointImpl;
-import ucar.unidata.geoloc.LatLonRect;
-import ucar.unidata.geoloc.Station;
-import ucar.unidata.geoloc.StationImpl;
+import ucar.unidata.geoloc.*;
+
+import javax.annotation.Nonnull;
+import java.io.IOException;
+import java.util.Formatter;
+import java.util.List;
 
 /**
  * Helper class for using the netcdf-3 record dimension.
@@ -401,19 +392,20 @@ public class RecordDatasetHelper {
     protected StructureData sdata;
 
     RecordPointObs(int recno) {
-      super(null, RecordDatasetHelper.this.timeUnit);
+      super(null);
       this.recno = recno;
     }
 
     // Constructor for the case where you keep track of the location, time of each record, but not the data.
-    protected RecordPointObs(DsgFeatureCollection dsg, EarthLocation location, double obsTime, double nomTime, CalendarDateUnit timeUnit, int recno) {
-      super(dsg, location, obsTime, nomTime, timeUnit);
+    protected RecordPointObs(
+            DsgFeatureCollection dsg, EarthLocation location, double obsTime, double nomTime, int recno) {
+      super(dsg, location, obsTime, nomTime);
       this.recno = recno;
     }
 
     // Constructor for when you already have the StructureData and want to wrap it in a StationObsDatatype
     protected RecordPointObs(StructureData sdata, int recno) {
-      super(null, RecordDatasetHelper.this.timeUnit);
+      super(null);
       this.sdata = sdata;
       this.recno = recno;
 
@@ -477,8 +469,8 @@ public class RecordDatasetHelper {
      * @param nomTime nominal time (may be NaN)
      * @param recno   data is at this record number
      */
-    protected RecordStationObs(DsgFeatureCollection dsg, Station station, double obsTime, double nomTime, CalendarDateUnit timeUnit, int recno) {
-      super(dsg, station, obsTime, nomTime, timeUnit, recno);
+    protected RecordStationObs(DsgFeatureCollection dsg, Station station, double obsTime, double nomTime, int recno) {
+      super(dsg, station, obsTime, nomTime, recno);
       this.station = station;
     }
 
@@ -509,7 +501,6 @@ public class RecordDatasetHelper {
       super(recno);
       this.recno = recno;
       this.sdata = sdata;
-      this.timeUnit = RecordDatasetHelper.this.timeUnit;
 
       StructureMembers members = sdata.getStructureMembers();
       obsTime = getTime(members.findMember(obsTimeVName), sdata);

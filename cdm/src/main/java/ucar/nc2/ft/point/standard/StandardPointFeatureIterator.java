@@ -33,19 +33,13 @@
 
 package ucar.nc2.ft.point.standard;
 
-import java.io.IOException;
-import javax.annotation.Nonnull;
 import ucar.ma2.StructureData;
 import ucar.nc2.ft.DsgFeatureCollection;
 import ucar.nc2.ft.PointFeature;
-import ucar.nc2.ft.point.CollectionInfo;
-import ucar.nc2.ft.point.PointCollectionImpl;
-import ucar.nc2.ft.point.PointFeatureImpl;
-import ucar.nc2.ft.point.PointIteratorFromStructureData;
-import ucar.nc2.ft.point.StationFeature;
-import ucar.nc2.ft.point.StationFeatureHas;
-import ucar.nc2.ft.point.StationPointFeature;
-import ucar.nc2.time.CalendarDateUnit;
+import ucar.nc2.ft.point.*;
+
+import javax.annotation.Nonnull;
+import java.io.IOException;
 
 /**
  * A PointFeatureIterator which uses a NestedTable to implement makeFeature().
@@ -56,14 +50,13 @@ import ucar.nc2.time.CalendarDateUnit;
 public class StandardPointFeatureIterator extends PointIteratorFromStructureData {
   protected PointCollectionImpl collectionDsg;
   protected NestedTable ft;
-  protected CalendarDateUnit timeUnit;
   protected Cursor cursor;
 
-  StandardPointFeatureIterator(PointCollectionImpl dsg, NestedTable ft, CalendarDateUnit timeUnit, ucar.ma2.StructureDataIterator structIter, Cursor cursor) throws IOException {
+  StandardPointFeatureIterator(PointCollectionImpl dsg, NestedTable ft, ucar.ma2.StructureDataIterator structIter,
+          Cursor cursor) throws IOException {
     super(structIter, null);
     this.collectionDsg = dsg;
     this.ft = ft;
-    this.timeUnit = timeUnit;
     this.cursor = cursor;
     CollectionInfo info = dsg.getInfo();
     if (!info.isComplete()) setCalculateBounds(info);
@@ -80,7 +73,7 @@ public class StandardPointFeatureIterator extends PointIteratorFromStructureData
 
     double obsTime = ft.getObsTime( this.cursor);
     // must send a copy, since sdata is changing each time, and StandardPointFeature may be stored
-    return new StandardPointFeature(cursor.copy(), timeUnit, obsTime);
+    return new StandardPointFeature(cursor.copy(), obsTime);
   }
 
   protected boolean isMissing() throws IOException {
@@ -90,8 +83,8 @@ public class StandardPointFeatureIterator extends PointIteratorFromStructureData
   private class StandardPointFeature extends PointFeatureImpl implements StationPointFeature, StationFeatureHas {
     protected Cursor cursor;
 
-    StandardPointFeature(Cursor cursor, CalendarDateUnit timeUnit, double obsTime) {
-      super(collectionDsg, timeUnit);
+    StandardPointFeature(Cursor cursor, double obsTime) {
+      super(collectionDsg);
       this.cursor = cursor;
       cursor.currentIndex = 1; // LOOK ????
 

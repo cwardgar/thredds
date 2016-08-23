@@ -12,8 +12,8 @@ public class SimpleStationPointFeature extends SimplePointFeature implements Sta
     private final StationFeature stationFeat;
 
     public SimpleStationPointFeature(DsgFeatureCollection dsg, StationFeature stationFeat, double obsTime,
-            double nomTime, CalendarDateUnit timeUnit, StructureData featureData) {
-        super(dsg, stationFeat, obsTime, nomTime, timeUnit, featureData);
+            double nomTime, StructureData featureData) {
+        super(dsg, stationFeat, obsTime, nomTime, featureData);
         this.stationFeat = stationFeat;
     }
 

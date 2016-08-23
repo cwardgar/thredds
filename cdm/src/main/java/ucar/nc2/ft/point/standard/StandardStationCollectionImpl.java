@@ -33,9 +33,6 @@
 
 package ucar.nc2.ft.point.standard;
 
-import java.io.IOException;
-import javax.annotation.Nonnull;
-
 import ucar.ma2.StructureData;
 import ucar.ma2.StructureDataIterator;
 import ucar.nc2.ft.PointFeatureIterator;
@@ -45,6 +42,9 @@ import ucar.nc2.ft.point.StationHelper;
 import ucar.nc2.ft.point.StationTimeSeriesCollectionImpl;
 import ucar.nc2.ft.point.StationTimeSeriesFeatureImpl;
 import ucar.nc2.time.CalendarDateUnit;
+
+import javax.annotation.Nonnull;
+import java.io.IOException;
 
 /**
  * Object Heirarchy for StationFeatureCollection:
@@ -117,7 +117,7 @@ public class StandardStationCollectionImpl extends StationTimeSeriesCollectionIm
       ft.addParentJoin(cursor); // there may be parent joins
 
       StructureDataIterator obsIter = ft.getLeafFeatureDataIterator(cursor);
-      return new StandardPointFeatureIterator(this, ft, timeUnit, obsIter, cursor);
+      return new StandardPointFeatureIterator(this, ft, obsIter, cursor);
     }
 
     @Nonnull

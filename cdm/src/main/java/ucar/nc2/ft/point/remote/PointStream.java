@@ -236,14 +236,15 @@ public class PointStream {
       PointStreamProto.PointFeature pfp = PointStreamProto.PointFeature.parseFrom(rawBytes);
       PointStreamProto.Location locp = pfp.getLoc();
       EarthLocationImpl location = new EarthLocationImpl(locp.getLat(), locp.getLon(), locp.getAlt());
-      return new MyPointFeature(dsg, location, locp.getTime(), locp.getNomTime(), dateUnit, pfp);
+      return new MyPointFeature(dsg, location, locp.getTime(), locp.getNomTime(), pfp);
     }
 
     private class MyPointFeature extends PointFeatureImpl {
       PointStreamProto.PointFeature pfp;
 
-      MyPointFeature(DsgFeatureCollection dsg, EarthLocation location, double obsTime, double nomTime, CalendarDateUnit timeUnit, PointStreamProto.PointFeature pfp) {
-        super(dsg, location, obsTime, nomTime, timeUnit);
+      MyPointFeature(DsgFeatureCollection dsg, EarthLocation location, double obsTime, double nomTime,
+              PointStreamProto.PointFeature pfp) {
+        super(dsg, location, obsTime, nomTime);
         this.pfp = pfp;
       }
 

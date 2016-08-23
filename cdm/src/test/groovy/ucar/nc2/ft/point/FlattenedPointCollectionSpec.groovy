@@ -31,23 +31,23 @@ class FlattenedPointCollectionSpec extends Specification {
         dateUnit = CalendarDateUnit.of(null, "days since 1970-01-01 00:00:00")
         DsgFeatureCollection dummyDsg = new SimplePointFeatureCollection("dummy", dateUnit, "m")
 
-        pf1 = makePointFeat(dummyDsg, -75, -70,  630,   23,  dateUnit)
-        pf2 = makePointFeat(dummyDsg, -60, -40,  94,    51,  dateUnit)
-        pf3 = makePointFeat(dummyDsg, -45, -10,  1760,  88,  dateUnit)
-        pf4 = makePointFeat(dummyDsg, -85,  20,  18940, 120, dateUnit)
-        pf5 = makePointFeat(dummyDsg,  0,   50,  26600, 150, dateUnit)
-        pf6 = makePointFeat(dummyDsg,  85,  80,  52800, 180, dateUnit)
-        pf7 = makePointFeat(dummyDsg,  15,  110, 1894,  200, dateUnit)
-        pf8 = makePointFeat(dummyDsg,  30,  140, 266,   300, dateUnit)
-        pf9 = makePointFeat(dummyDsg,  45,  170, 5280,  400, dateUnit)
+        pf1 = makePointFeat(dummyDsg, -75, -70,  630,   23)
+        pf2 = makePointFeat(dummyDsg, -60, -40,  94,    51)
+        pf3 = makePointFeat(dummyDsg, -45, -10,  1760,  88)
+        pf4 = makePointFeat(dummyDsg, -85,  20,  18940, 120)
+        pf5 = makePointFeat(dummyDsg,  0,   50,  26600, 150)
+        pf6 = makePointFeat(dummyDsg,  85,  80,  52800, 180)
+        pf7 = makePointFeat(dummyDsg,  15,  110, 1894,  200)
+        pf8 = makePointFeat(dummyDsg,  30,  140, 266,   300)
+        pf9 = makePointFeat(dummyDsg,  45,  170, 5280,  400)
     }
 
     private static PointFeature makePointFeat(
-            DsgFeatureCollection dsg, double lat, double lon, double alt, double time, CalendarDateUnit dateUnit) {
+            DsgFeatureCollection dsg, double lat, double lon, double alt, double time) {
         def earthLoc = new EarthLocationImpl(lat, lon, alt)
 
         // Pass null StructureData; we only care about the metadata for these tests.
-        return new SimplePointFeature(dsg, earthLoc, time, time, dateUnit, null)
+        return new SimplePointFeature(dsg, earthLoc, time, time, null)
     }
 
     def "handles empty FeatureDatasetPoint"() {

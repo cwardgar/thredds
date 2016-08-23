@@ -33,27 +33,18 @@
 
 package ucar.nc2.ft.point.standard;
 
-import java.io.IOException;
-import java.util.Iterator;
-import javax.annotation.Nonnull;
-
 import ucar.ma2.StructureData;
 import ucar.ma2.StructureDataIterator;
 import ucar.nc2.constants.FeatureType;
-import ucar.nc2.ft.PointFeatureCollection;
-import ucar.nc2.ft.PointFeatureCollectionIterator;
-import ucar.nc2.ft.PointFeatureIterator;
-import ucar.nc2.ft.ProfileFeature;
-import ucar.nc2.ft.TrajectoryFeature;
-import ucar.nc2.ft.TrajectoryFeatureCollection;
-import ucar.nc2.ft.point.CollectionInfo;
-import ucar.nc2.ft.point.CollectionIteratorAdapter;
-import ucar.nc2.ft.point.PointCollectionIteratorFiltered;
-import ucar.nc2.ft.point.PointFeatureCCImpl;
-import ucar.nc2.ft.point.TrajectoryFeatureImpl;
+import ucar.nc2.ft.*;
+import ucar.nc2.ft.point.*;
 import ucar.nc2.time.CalendarDateUnit;
 import ucar.nc2.util.IOIterator;
 import ucar.unidata.geoloc.LatLonRect;
+
+import javax.annotation.Nonnull;
+import java.io.IOException;
+import java.util.Iterator;
 
 /**
  * TrajectoryFeatureCollection using nested tables.
@@ -94,7 +85,7 @@ public class StandardTrajectoryCollectionImpl extends PointFeatureCCImpl impleme
     public PointFeatureIterator getPointFeatureIterator() throws IOException {
       Cursor cursorIter = cursor.copy();
       StructureDataIterator siter = ft.getLeafFeatureDataIterator(cursorIter);
-      return new StandardPointFeatureIterator(this, ft, timeUnit, siter, cursorIter);
+      return new StandardPointFeatureIterator(this, ft, siter, cursorIter);
     }
 
     @Nonnull

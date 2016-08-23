@@ -32,16 +32,17 @@ class SortingPointFeatureCollectionSpec extends Specification {
         DsgFeatureCollection dummyDsg = new SimplePointFeatureCC("dummy", timeUnit, "m", FeatureType.STATION)
 
         SimplePointFeatureCollection simplePfc = new SimplePointFeatureCollection("simplePfc", timeUnit, "m")
-        simplePfc.add makeStationPointFeature(dummyDsg, stationFeat, timeUnit, 10, 10, 103)
-        simplePfc.add makeStationPointFeature(dummyDsg, stationFeat, timeUnit, 20, 20, 96)
-        simplePfc.add makeStationPointFeature(dummyDsg, stationFeat, timeUnit, 30, 30, 118)
-        simplePfc.add makeStationPointFeature(dummyDsg, stationFeat, timeUnit, 40, 40, 110)
+        simplePfc.add makeStationPointFeature(dummyDsg, stationFeat, 10, 10, 103)
+        simplePfc.add makeStationPointFeature(dummyDsg, stationFeat, 20, 20, 96)
+        simplePfc.add makeStationPointFeature(dummyDsg, stationFeat, 30, 30, 118)
+        simplePfc.add makeStationPointFeature(dummyDsg, stationFeat, 40, 40, 110)
 
         and: "Create comparator that will sort elements in reverse order of obs time."
         def revObsTimeComp = new OrderBy({ it.observationTime }).reversed()
 
         and: "sortingPfc sorts simplePfc using revObsTimeComp"
-        PointFeatureCollection sortingPfc = new SortingPointFeatureCollection(simplePfc, revObsTimeComp)
+        PointFeatureCollection sortingPfc = new SortingPointFeatureCollection(revObsTimeComp)
+        sortingPfc.addAll simplePfc
 
         expect: "Sorted list and SortingPointFeatureCollection have same iteration order when using same comparator."
         PointTestUtil.assertIterablesEquals simplePfc.asList().toSorted(revObsTimeComp), sortingPfc.asList()
@@ -51,13 +52,13 @@ class SortingPointFeatureCollectionSpec extends Specification {
     }
 
     private static StationPointFeature makeStationPointFeature(DsgFeatureCollection dsg, StationFeature stationFeat,
-            CalendarDateUnit timeUnit, double obsTime, double nomTime, double tasmax) {
+            double obsTime, double nomTime, double tasmax) {
         StructureDataScalar featureData = new StructureDataScalar("StationPointFeature")
-        featureData.addMember("obsTime", "Observation time", timeUnit.getUdUnit(), DataType.DOUBLE, obsTime)
-        featureData.addMember("nomTime", "Nominal time", timeUnit.getUdUnit(), DataType.DOUBLE, nomTime)
+        featureData.addMember("obsTime", "Observation time", dsg.timeUnit.udUnit, DataType.DOUBLE, obsTime)
+        featureData.addMember("nomTime", "Nominal time", dsg.timeUnit.udUnit, DataType.DOUBLE, nomTime)
         featureData.addMember("tasmax", "Max temperature", "Celsius", DataType.DOUBLE, tasmax)
 
-        return new SimpleStationPointFeature(dsg, stationFeat, obsTime, nomTime, timeUnit, featureData)
+        return new SimpleStationPointFeature(dsg, stationFeat, obsTime, nomTime, featureData)
     }
 
     def "features from file, different sort methods, simple comparator"() {
@@ -69,7 +70,8 @@ class SortingPointFeatureCollectionSpec extends Specification {
         def revStationNameComp = SortingPointFeatureCollection.stationNameComparator.reversed()
 
         and: "sortingPfc sorts simplePfc using revStationNameComp"
-        PointFeatureCollection sortingPfc = new SortingPointFeatureCollection(flattenedPfc, revStationNameComp)
+        PointFeatureCollection sortingPfc = new SortingPointFeatureCollection(revStationNameComp)
+        sortingPfc.addAll flattenedPfc
 
         expect: "Sorted list and SortingPointFeatureCollection have same iteration order when using same comparator."
         PointTestUtil.assertIterablesEquals flattenedPfc.asList().toSorted(revStationNameComp), sortingPfc.asList()
@@ -96,7 +98,8 @@ class SortingPointFeatureCollectionSpec extends Specification {
         def compositeComp = obsTimeComp.thenComparing revStationNameLenComp
         
         and: "Dump input into SortingPointFeatureCollection"
-        PointFeatureCollection sortingPfc = new SortingPointFeatureCollection(inputPfc, compositeComp)
+        PointFeatureCollection sortingPfc = new SortingPointFeatureCollection(compositeComp)
+        sortingPfc.addAll inputPfc
         
         
         expect: "same station names"

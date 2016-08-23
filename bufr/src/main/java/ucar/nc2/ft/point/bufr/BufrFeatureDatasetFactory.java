@@ -33,25 +33,9 @@
 
 package ucar.nc2.ft.point.bufr;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Formatter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import javax.annotation.Nonnull;
 import org.jdom2.Element;
 import thredds.client.catalog.Catalog;
-import ucar.ma2.Array;
-import ucar.ma2.ArraySequence;
-import ucar.ma2.DataType;
-import ucar.ma2.StructureData;
-import ucar.ma2.StructureDataComposite;
-import ucar.ma2.StructureDataIterator;
-import ucar.ma2.StructureDataProxy;
-import ucar.ma2.StructureDataW;
-import ucar.ma2.StructureMembers;
+import ucar.ma2.*;
 import ucar.nc2.Attribute;
 import ucar.nc2.Structure;
 import ucar.nc2.Variable;
@@ -60,11 +44,7 @@ import ucar.nc2.constants.FeatureType;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.nc2.dataset.SequenceDS;
 import ucar.nc2.dataset.VariableDS;
-import ucar.nc2.ft.FeatureDataset;
-import ucar.nc2.ft.FeatureDatasetFactory;
-import ucar.nc2.ft.PointFeature;
-import ucar.nc2.ft.PointFeatureCollection;
-import ucar.nc2.ft.PointFeatureIterator;
+import ucar.nc2.ft.*;
 import ucar.nc2.ft.point.*;
 import ucar.nc2.iosp.IOServiceProvider;
 import ucar.nc2.iosp.bufr.BufrIosp2;
@@ -75,6 +55,11 @@ import ucar.nc2.util.CancelTask;
 import ucar.nc2.util.Indent;
 import ucar.unidata.geoloc.EarthLocation;
 import ucar.unidata.geoloc.LatLonRect;
+
+import javax.annotation.Nonnull;
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
 
 /**
  * Use BufrConfig to make BUFR files into PointFeatureDataset
@@ -255,7 +240,7 @@ public class BufrFeatureDatasetFactory implements FeatureDatasetFactory {
           StructureData sdata;
 
           public BufrStationPoint(EarthLocation location, double obsTime, double nomTime, StructureData sdata) {
-            super(BufrStation.this, location, obsTime, nomTime, bufrDateUnits);
+            super(BufrStation.this, location, obsTime, nomTime);
             this.sdata = sdata;
           }
 
@@ -337,7 +322,7 @@ public class BufrFeatureDatasetFactory implements FeatureDatasetFactory {
           StructureData sdata;
 
           public BufrPoint(StationFeature want, double obsTime, double nomTime, StructureData sdata) {
-            super(BufrPointFeatureCollection.this, want, obsTime, nomTime, bufrDateUnits);
+            super(BufrPointFeatureCollection.this, want, obsTime, nomTime);
             this.sdata = sdata;
           }
 

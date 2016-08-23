@@ -33,28 +33,17 @@
 
 package ucar.nc2.ft.point.standard;
 
-import java.io.IOException;
-import java.util.Iterator;
-import javax.annotation.Nonnull;
-
 import ucar.ma2.StructureData;
 import ucar.ma2.StructureDataIterator;
-import ucar.nc2.ft.PointFeature;
-import ucar.nc2.ft.PointFeatureCC;
-import ucar.nc2.ft.PointFeatureCCIterator;
-import ucar.nc2.ft.PointFeatureCollection;
-import ucar.nc2.ft.PointFeatureCollectionIterator;
-import ucar.nc2.ft.PointFeatureIterator;
-import ucar.nc2.ft.TrajectoryProfileFeature;
-import ucar.nc2.ft.point.CollectionInfo;
-import ucar.nc2.ft.point.DsgCollectionImpl;
-import ucar.nc2.ft.point.NestedCollectionIteratorAdapter;
-import ucar.nc2.ft.point.ProfileFeatureImpl;
-import ucar.nc2.ft.point.SectionCollectionImpl;
-import ucar.nc2.ft.point.SectionFeatureImpl;
+import ucar.nc2.ft.*;
+import ucar.nc2.ft.point.*;
 import ucar.nc2.time.CalendarDate;
 import ucar.nc2.time.CalendarDateUnit;
 import ucar.nc2.util.IOIterator;
+
+import javax.annotation.Nonnull;
+import java.io.IOException;
+import java.util.Iterator;
 
 /**
  * Nested Table implementation of SectionCollection.
@@ -252,7 +241,7 @@ public class StandardSectionCollectionImpl extends SectionCollectionImpl {
     public PointFeatureIterator getPointFeatureIterator() throws IOException {
       Cursor cursorIter = cursor.copy();
       StructureDataIterator siter = ft.getLeafFeatureDataIterator(cursorIter);
-      return new PointIterator(ft, timeUnit, siter, cursorIter);
+      return new PointIterator(ft, siter, cursorIter);
     }
 
     @Nonnull
@@ -269,8 +258,8 @@ public class StandardSectionCollectionImpl extends SectionCollectionImpl {
 
     private class PointIterator extends StandardPointFeatureIterator {
 
-      PointIterator(NestedTable ft, CalendarDateUnit timeUnit, StructureDataIterator structIter, Cursor cursor) throws IOException {
-        super(StandardSectionProfileFeature.this, ft, timeUnit, structIter, cursor);
+      PointIterator(NestedTable ft, StructureDataIterator structIter, Cursor cursor) throws IOException {
+        super(StandardSectionProfileFeature.this, ft, structIter, cursor);
       }
 
       @Override

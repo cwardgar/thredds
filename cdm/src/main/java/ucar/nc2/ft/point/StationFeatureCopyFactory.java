@@ -33,14 +33,15 @@
 
 package ucar.nc2.ft.point;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 import ucar.ma2.StructureData;
 import ucar.ma2.StructureDataDeep;
 import ucar.ma2.StructureMembers;
 import ucar.nc2.ft.PointFeature;
+
 import javax.annotation.Nonnull;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * A factory for making deep copies of StationPointFeature, so all data is self contained.
@@ -103,8 +104,7 @@ public class StationFeatureCopyFactory {
     StructureData data;
 
     StationPointFeatureCopy(StationFeature station, PointFeature pf) {
-      super(pf.getFeatureCollection(), station, pf.getObservationTime(), pf.getNominalTime(),
-              pf.getFeatureCollection().getTimeUnit());
+      super(pf.getFeatureCollection(), station, pf.getObservationTime(), pf.getNominalTime());
       this.station = station;
     }
 

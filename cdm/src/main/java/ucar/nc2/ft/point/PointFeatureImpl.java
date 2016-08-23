@@ -37,7 +37,6 @@ import com.google.common.base.Preconditions;
 import ucar.nc2.ft.DsgFeatureCollection;
 import ucar.nc2.ft.PointFeature;
 import ucar.nc2.time.CalendarDate;
-import ucar.nc2.time.CalendarDateUnit;
 import ucar.unidata.geoloc.EarthLocation;
 
 import javax.annotation.Nonnull;
@@ -54,19 +53,16 @@ public abstract class PointFeatureImpl implements PointFeature, Comparable<Point
   protected DsgFeatureCollection dsg;
   protected EarthLocation location;
   protected double obsTime, nomTime;
-  protected CalendarDateUnit timeUnit;
 
-  protected PointFeatureImpl(DsgFeatureCollection dsg, CalendarDateUnit timeUnit) {
+  protected PointFeatureImpl(DsgFeatureCollection dsg) {
     this.dsg = Preconditions.checkNotNull(dsg, "dgs == null");
-    this.timeUnit = timeUnit;
   }
 
-  public PointFeatureImpl(DsgFeatureCollection dsg, EarthLocation location, double obsTime, double nomTime, CalendarDateUnit timeUnit) {
+  public PointFeatureImpl(DsgFeatureCollection dsg, EarthLocation location, double obsTime, double nomTime) {
     this.dsg = Preconditions.checkNotNull(dsg, "dgs == null");
     this.location = Preconditions.checkNotNull(location, "location == null");
     this.obsTime = obsTime;
     this.nomTime = (nomTime == 0) ? obsTime : nomTime; // LOOK temp kludge until protobuf accepts NaN as defaults
-    this.timeUnit = Preconditions.checkNotNull(timeUnit, "timeUnit == null");
   }
 
   @Nonnull
@@ -92,13 +88,13 @@ public abstract class PointFeatureImpl implements PointFeature, Comparable<Point
   @Nonnull
   @Override
   public CalendarDate getObservationTimeAsCalendarDate() {
-    return timeUnit.makeCalendarDate(getObservationTime());
+    return dsg.getTimeUnit().makeCalendarDate(getObservationTime());
   }
 
   @Nonnull
   @Override
   public CalendarDate getNominalTimeAsCalendarDate() {
-    return timeUnit.makeCalendarDate(getNominalTime());
+    return dsg.getTimeUnit().makeCalendarDate(getNominalTime());
   }
 
   @Override
@@ -114,7 +110,7 @@ public abstract class PointFeatureImpl implements PointFeature, Comparable<Point
     toStringHelper.add("location", getLocation());
     toStringHelper.add("obsTime", getObservationTime());
     toStringHelper.add("nomTime", getNominalTime());
-    toStringHelper.add("timeUnit", timeUnit);
+    toStringHelper.add("timeUnit", dsg.getTimeUnit());
 
     try {
       toStringHelper.add("featureData", String.valueOf(getFeatureData()));

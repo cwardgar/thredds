@@ -33,29 +33,20 @@
 
 package ucar.nc2.ft.point.standard;
 
-import java.io.IOException;
-import java.util.Iterator;
-import javax.annotation.Nonnull;
-
 import ucar.ma2.StructureData;
 import ucar.ma2.StructureDataIterator;
 import ucar.nc2.constants.FeatureType;
-import ucar.nc2.ft.PointFeature;
-import ucar.nc2.ft.PointFeatureCollection;
-import ucar.nc2.ft.PointFeatureCollectionIterator;
-import ucar.nc2.ft.PointFeatureIterator;
-import ucar.nc2.ft.ProfileFeature;
-import ucar.nc2.ft.ProfileFeatureCollection;
-import ucar.nc2.ft.point.CollectionInfo;
-import ucar.nc2.ft.point.CollectionIteratorAdapter;
-import ucar.nc2.ft.point.PointCollectionIteratorFiltered;
-import ucar.nc2.ft.point.PointFeatureCCImpl;
-import ucar.nc2.ft.point.ProfileFeatureImpl;
+import ucar.nc2.ft.*;
+import ucar.nc2.ft.point.*;
 import ucar.nc2.time.CalendarDate;
 import ucar.nc2.time.CalendarDateRange;
 import ucar.nc2.time.CalendarDateUnit;
 import ucar.nc2.util.IOIterator;
 import ucar.unidata.geoloc.LatLonRect;
+
+import javax.annotation.Nonnull;
+import java.io.IOException;
+import java.util.Iterator;
 
 /**
  * Nested Table implementation of ProfileCollection
@@ -127,7 +118,7 @@ public class StandardProfileCollectionImpl extends PointFeatureCCImpl implements
     public PointFeatureIterator getPointFeatureIterator() throws IOException {
       Cursor cursorIter = cursor.copy();
       StructureDataIterator siter = ft.getLeafFeatureDataIterator(cursorIter);
-      return new StandardProfileFeatureIterator(ft, timeUnit, siter, cursorIter);
+      return new StandardProfileFeatureIterator(ft, siter, cursorIter);
     }
 
     @Nonnull
@@ -138,8 +129,8 @@ public class StandardProfileCollectionImpl extends PointFeatureCCImpl implements
 
     private class StandardProfileFeatureIterator extends StandardPointFeatureIterator {
 
-      StandardProfileFeatureIterator(NestedTable ft, CalendarDateUnit timeUnit, StructureDataIterator structIter, Cursor cursor) throws IOException {
-        super(StandardProfileFeature.this, ft, timeUnit, structIter, cursor);
+      StandardProfileFeatureIterator(NestedTable ft, StructureDataIterator structIter, Cursor cursor) throws IOException {
+        super(StandardProfileFeature.this, ft, structIter, cursor);
       }
 
       @Override
