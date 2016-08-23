@@ -33,8 +33,10 @@
  */
 package ucar.nc2.ft.point;
 
+import ucar.nc2.ft.PointFeature;
 import ucar.nc2.time.CalendarDateRange;
 import ucar.nc2.time.CalendarDateUnit;
+import ucar.unidata.geoloc.LatLonPoint;
 import ucar.unidata.geoloc.LatLonRect;
 
 /**
@@ -59,6 +61,21 @@ public class CollectionInfo {
     this.dateRange = dateRange;
     this.nfeatures = nfeatures;
     this.nobs = nobs;
+  }
+
+  public void extend(PointFeature pointFeat) {
+    ++nobs;
+    ++nfeatures;
+
+    LatLonPoint pfLoc = pointFeat.getLocation().getLatLon();
+    if (bbox == null) {
+      bbox = new LatLonRect(pfLoc, pfLoc);
+    } else {
+      bbox.extend(pfLoc);
+    }
+
+    minTime = Math.min(minTime, pointFeat.getObservationTime());
+    maxTime = Math.max(maxTime, pointFeat.getObservationTime());
   }
 
   public void extend(CollectionInfo info) {

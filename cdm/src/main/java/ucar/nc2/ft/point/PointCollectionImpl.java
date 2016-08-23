@@ -32,9 +32,6 @@
  */
 package ucar.nc2.ft.point;
 
-import java.io.IOException;
-import java.util.Iterator;
-import javax.annotation.Nonnull;
 import ucar.nc2.constants.FeatureType;
 import ucar.nc2.ft.PointFeature;
 import ucar.nc2.ft.PointFeatureCollection;
@@ -42,6 +39,10 @@ import ucar.nc2.ft.PointFeatureIterator;
 import ucar.nc2.time.CalendarDateRange;
 import ucar.nc2.time.CalendarDateUnit;
 import ucar.unidata.geoloc.LatLonRect;
+
+import javax.annotation.Nonnull;
+import java.io.IOException;
+import java.util.Iterator;
 
 /**
  * Abstract superclass for PointFeatureCollection
@@ -51,7 +52,6 @@ import ucar.unidata.geoloc.LatLonRect;
  * @since Mar 1, 2008
  */
 public abstract class PointCollectionImpl extends DsgCollectionImpl implements PointFeatureCollection {
-
   protected PointCollectionImpl(String name, CalendarDateUnit timeUnit, String altUnits) {
     super(name, timeUnit, altUnits);
   }
@@ -113,13 +113,22 @@ public abstract class PointCollectionImpl extends DsgCollectionImpl implements P
       localIterator.close();
   }
 
+  /**
+   * {@inheritDoc}
+   * @throws IllegalStateException  if {@link #hasNext()} hasn't been called first.
+     */
   @Override
-  public PointFeature next() throws IOException {
-    return localIterator.next();
+  public PointFeature next() throws IOException, IllegalStateException {
+    if (localIterator == null) {
+      throw new IllegalStateException("Call hasNext() first!");
+    } else {
+      return localIterator.next();
+    }
   }
 
   @Override
   public void resetIteration() throws IOException {
-    localIterator = getPointFeatureIterator();
+    finish();                                   // Release resources of current iterator, if it exists.
+    localIterator = getPointFeatureIterator();  // Get a new iterator.
   }
 }
