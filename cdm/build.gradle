@@ -22,6 +22,7 @@ dependencies {
     // These are for Spock.
     testCompile libraries["groovy-all"]
     testCompile libraries["spock-core"]
+    testRuntime libraries["cglib-nodep"]
 
     testCompile libraries["commons-io"]
 }

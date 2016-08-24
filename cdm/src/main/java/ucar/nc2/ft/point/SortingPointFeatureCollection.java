@@ -1,6 +1,7 @@
 package ucar.nc2.ft.point;
 
-import com.google.common.base.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ucar.nc2.constants.FeatureType;
 import ucar.nc2.ft.PointFeature;
 import ucar.nc2.ft.PointFeatureCollection;
@@ -18,6 +19,22 @@ import java.util.*;
 public class SortingPointFeatureCollection extends PointCollectionImpl {
     //////////////////////////////////////////////////// Static ////////////////////////////////////////////////////
 
+    private static final Logger logger = LoggerFactory.getLogger(SortingPointFeatureCollection.class);
+
+    /** The possible states that this collection may be in. They are mutually exclusive. */
+    public enum State {
+        /**
+         * In this state, new {@link PointFeature}s may be added, via {@link #add} and {@link #addAll}.
+         * Once {@link #getPointFeatureIterator()} is called, the active state becomes {@link #RETRIEVAL}.
+         */
+        ADDITION,
+        /**
+         * In this state, previously-added {@link PointFeature}s may be retrieved in sorted order via
+         * {@link #getPointFeatureIterator()}. No further additions are permitted.
+         */
+        RETRIEVAL
+    }
+
     public static final Comparator<PointFeature> stationNameComparator = (pf1, pf2) -> {
         if (!(pf1 instanceof StationPointFeature && pf2 instanceof StationPointFeature)) {
             return 0;
@@ -33,18 +50,16 @@ public class SortingPointFeatureCollection extends PointCollectionImpl {
 
     /////////////////////////////////////////////////// Instance ///////////////////////////////////////////////////
 
-    private final Comparator<PointFeature> comp;
-
     /*
      Using a SortedMap of Lists instead of a SortedSet here has 2 benefits:
      1. Elements that compare "equal" will be retained. We don't want to discard a StationPointFeature just
         because it has the same station name as another StationPointFeature, for example.
      2. The relative order of "equal" elements will be maintained. For example, if spf1 and spf2 are "equal" and
-        spf1 appears before spf2 in the delagate collection, than spf1 will still come before spf2 when we
-        iterate over this SortingPointFeatureCollection.
+        spf1 is added before spf2, than spf1 will still come before spf2 when we retrieve the features later.
      */
-    private SortedMap<PointFeature, List<PointFeature>> inMemCache;
+    private final SortedMap<PointFeature, List<PointFeature>> inMemCache;
 
+    private State state;
     private FeatureType featType;
 
     public SortingPointFeatureCollection() {
@@ -52,13 +67,23 @@ public class SortingPointFeatureCollection extends PointCollectionImpl {
     }
 
     public SortingPointFeatureCollection(Comparator<PointFeature> comp) {
-        super("tempName", CalendarDateUnit.unixDateUnit, null);  // name and timeUnit are temporary
-        this.comp = Preconditions.checkNotNull(comp, "comp == null");
+        // The values of name, timeUnit, altUnits, and featType are temporary until the first feature is added.
+        super("tempName", CalendarDateUnit.unixDateUnit, null);
         this.inMemCache = new TreeMap<>(comp);
+        this.state = State.ADDITION;
+        this.featType = FeatureType.ANY_POINT;  // "UNKNOWN_POINT" would be more appropriate.
+
+        // Create the CollectionInfo object. Causes getSize() and getNobs() to return 0 before a feature is added
+        // instead of -1 (unknown).
+        getInfo();
     }
 
-    public void add(PointFeature pointFeat) throws IOException {
-        if (inMemCache.size() == 0) {
+    public void add(PointFeature pointFeat) throws IllegalStateException, IOException {
+        if (state != State.ADDITION) {
+            throw new IllegalStateException("No more features can be added once getPointFeatureIterator() is called.");
+        }
+
+        if (inMemCache.isEmpty()) {
             // Copy metadata from first feature's collection
             this.name     = pointFeat.getFeatureCollection().getName();
             this.timeUnit = pointFeat.getFeatureCollection().getTimeUnit();
@@ -87,18 +112,16 @@ public class SortingPointFeatureCollection extends PointCollectionImpl {
         }
 
         bucket.add(pointFeat);
-        getInfo().extend(pointFeat);
+        info.extend(pointFeat);
 
         // TODO: Have we added too many features? Need to dump them to disk.
     }
 
-    public void addAll(PointFeatureCollection pfc) throws IOException {
+    public void addAll(PointFeatureCollection pfc) throws IllegalStateException, IOException {
         for (PointFeature pointFeat : pfc) {
             add(pointFeat);
         }
     }
-
-    // TODO: When last PointFeature is added and we're no longer in "add" mode, do getInfo().setComplete().
 
     private class Iter implements java.util.Iterator<PointFeature> {
         private Iterator<List<PointFeature>> bucketsIter;
@@ -109,7 +132,7 @@ public class SortingPointFeatureCollection extends PointCollectionImpl {
         }
 
         @Override
-        public boolean hasNext() {  // Method is idempotent.  TODO: Test idempotency.
+        public boolean hasNext() {  // Method is idempotent.
             while (featsIter == null || !featsIter.hasNext()) {
                 if (!bucketsIter.hasNext()) {
                     return false;
@@ -124,11 +147,10 @@ public class SortingPointFeatureCollection extends PointCollectionImpl {
 
         @Override
         public PointFeature next() {
-            if (!hasNext()) {  // Don't rely on user to call this.
-                throw new NoSuchElementException("There are no more elements.");
-            } else {
-                return featsIter.next();
-            }
+            // This iterator will be wrapped in a PointIteratorAdapter when returned to the user.
+            // Its next() method ensures that a NoSuchElementException is thrown if there are no more elements.
+            // There's no need to do yet another hasNext() check here.
+            return featsIter.next();
         }
     }
 
@@ -140,15 +162,16 @@ public class SortingPointFeatureCollection extends PointCollectionImpl {
         return featType;
     }
 
-    // Inheriting subset() from super class. Can I do better? Should I create a brand new SortingPointFeatureCollection
-    // and simply add all the features from *this* that satisfy the filter? It gets tricky when features have been
-    // serialized. Also, it means we must iterate over *this*.
-
     //////////////////////////////////// PointFeatureCollection ////////////////////////////////////
 
-    // TODO: Once this method is called, prohibit any further additions to collection.
     @Override
     public PointFeatureIterator getPointFeatureIterator() throws IOException {
+        if (state != State.RETRIEVAL) {
+            logger.debug("Switching collection's state from {} to {}.", state, State.RETRIEVAL);
+            this.state = State.RETRIEVAL;
+            info.setComplete();  // Collection metadata is complete because we've finished adding features.
+        }
+
         return new PointIteratorAdapter(new Iter());
     }
 }

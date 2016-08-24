@@ -32,13 +32,12 @@
  */
 package ucar.nc2.ft;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
 import ucar.nc2.Variable;
 import ucar.nc2.time.CalendarDateRange;
 import ucar.nc2.time.CalendarDateUnit;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -87,7 +86,8 @@ public interface DsgFeatureCollection {
   /**
    * Calendar date range for the FeatureCollection. May not be known until after iterating through the collection.
    *
-   * @return the calendar date range for the entire collection, or null if unknown
+   * @return the calendar date range for the entire collection. May be null if the range is unknown or the collection
+   *         is empty.
    */
   @Nullable
   CalendarDateRange getCalendarDateRange();
@@ -95,7 +95,8 @@ public interface DsgFeatureCollection {
   /**
    * The boundingBox for the FeatureCollection. May not be known until after iterating through the collection.
    *
-   * @return the lat/lon boundingBox for the entire collection, or null if unknown.
+   * @return the lat/lon boundingBox for the entire collection. May be null if the bounds are unknown or the collection
+   *         is empty.
    */
   @Nullable
   ucar.unidata.geoloc.LatLonRect getBoundingBox();

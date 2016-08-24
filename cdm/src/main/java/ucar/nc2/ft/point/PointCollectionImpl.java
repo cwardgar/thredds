@@ -103,8 +103,16 @@ public abstract class PointCollectionImpl extends DsgCollectionImpl implements P
 
   @Override
   public boolean hasNext() throws IOException {
-    if (localIterator == null) resetIteration();
-    return localIterator.hasNext();
+    if (localIterator == null) {
+      resetIteration();
+    }
+
+    if (!localIterator.hasNext()) {
+      finish();
+      return false;
+    } else {
+      return true;
+    }
   }
 
   @Override
@@ -119,6 +127,9 @@ public abstract class PointCollectionImpl extends DsgCollectionImpl implements P
      */
   @Override
   public PointFeature next() throws IOException, IllegalStateException {
+    // We can't check that localIterator.hasNext() because some PointFeatureIterators don't have an idempotent
+    // implementation of that method.
+
     if (localIterator == null) {
       throw new IllegalStateException("Call hasNext() first!");
     } else {
@@ -128,7 +139,9 @@ public abstract class PointCollectionImpl extends DsgCollectionImpl implements P
 
   @Override
   public void resetIteration() throws IOException {
-    finish();                                   // Release resources of current iterator, if it exists.
+    if (localIterator != null) {
+      finish();  // Release resources of current iterator, if it exists.
+    }
     localIterator = getPointFeatureIterator();  // Get a new iterator.
   }
 }
