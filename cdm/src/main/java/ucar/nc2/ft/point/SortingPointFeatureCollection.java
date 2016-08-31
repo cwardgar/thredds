@@ -35,6 +35,10 @@ public class SortingPointFeatureCollection extends PointCollectionImpl {
         RETRIEVAL
     }
 
+    /**
+     * Orders based upon a lexicographical comparison of the two features' station names. If one or both feature
+     * is not a {@link StationPointFeature}, simply returns {@code 0}.
+     */
     public static final Comparator<PointFeature> stationNameComparator = (pf1, pf2) -> {
         if (!(pf1 instanceof StationPointFeature && pf2 instanceof StationPointFeature)) {
             return 0;
@@ -45,8 +49,18 @@ public class SortingPointFeatureCollection extends PointCollectionImpl {
         }
     };
 
+    /**
+     * Orders based upon {@link PointFeature#getObservationTime() observation time}.
+     */
     public static final Comparator<PointFeature> observationTimeComparator =
             (pf1, pf2) -> Double.compare(pf1.getObservationTime(), pf2.getObservationTime());
+
+    /**
+     * Used when no explicit comparator is provided at construction. Orders first by {@link #stationNameComparator},
+     * then by {@link #observationTimeComparator}.
+     */
+    public static final Comparator<PointFeature> defaultComparator =
+            stationNameComparator.thenComparing(observationTimeComparator);
 
     /////////////////////////////////////////////////// Instance ///////////////////////////////////////////////////
 
@@ -62,13 +76,26 @@ public class SortingPointFeatureCollection extends PointCollectionImpl {
     private State state;
     private FeatureType featType;
 
+    /**
+     * Constructs a PointFeatureCollection that sorts its features using the
+     * {@link #defaultComparator default comparator}. Collection metadata (i.e. {@link #getTimeUnit() timeUnit},
+     * {@link #getAltUnits() altUnits}, and {@link #getCollectionFeatureType() featType}) are copied from the first
+     * feature that is {@link #add added}.
+     */
     public SortingPointFeatureCollection() {
-        this(stationNameComparator.thenComparing(observationTimeComparator));  // Default.
+        this(defaultComparator);
     }
 
+    /**
+     * Constructs a PointFeatureCollection that sorts its features using the given comparator. Collection metadata
+     * (i.e. {@link #getTimeUnit() timeUnit}, {@link #getAltUnits() altUnits}, and
+     * {@link #getCollectionFeatureType() featType}) are copied from the first feature that is {@link #add added}.
+     *
+     * @param comp  orders the features in the collection.
+     */
     public SortingPointFeatureCollection(Comparator<PointFeature> comp) {
-        // The values of name, timeUnit, altUnits, and featType are temporary until the first feature is added.
-        super("tempName", CalendarDateUnit.unixDateUnit, null);
+        // The values of timeUnit, altUnits, and featType are temporary until the first feature is added.
+        super(SortingPointFeatureCollection.class.getSimpleName(), CalendarDateUnit.unixDateUnit, null);
         this.inMemCache = new TreeMap<>(comp);
         this.state = State.ADDITION;
         this.featType = FeatureType.ANY_POINT;  // "UNKNOWN_POINT" would be more appropriate.
@@ -85,7 +112,6 @@ public class SortingPointFeatureCollection extends PointCollectionImpl {
 
         if (inMemCache.isEmpty()) {
             // Copy metadata from first feature's collection
-            this.name     = pointFeat.getFeatureCollection().getName();
             this.timeUnit = pointFeat.getFeatureCollection().getTimeUnit();
             this.altUnits = pointFeat.getFeatureCollection().getAltUnits();
             this.featType = pointFeat.getFeatureCollection().getCollectionFeatureType();

@@ -1,19 +1,15 @@
 package ucar.nc2.ft.point;
 
+import ucar.nc2.constants.FeatureType;
+import ucar.nc2.ft.*;
+import ucar.nc2.time.CalendarDateUnit;
+import ucar.nc2.util.IOIterator;
+
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
-import ucar.nc2.ft.DsgFeatureCollection;
-import ucar.nc2.ft.FeatureDatasetPoint;
-import ucar.nc2.ft.PointFeature;
-import ucar.nc2.ft.PointFeatureCC;
-import ucar.nc2.ft.PointFeatureCCC;
-import ucar.nc2.ft.PointFeatureCollection;
-import ucar.nc2.ft.PointFeatureIterator;
-import ucar.nc2.time.CalendarDateUnit;
-import ucar.nc2.util.IOIterator;
 
 /**
  * A PointFeatureCollection formed by aggregating DsgFeatureCollections and flattening their nested structures.
@@ -24,12 +20,13 @@ import ucar.nc2.util.IOIterator;
  * @since 2014/10/08
  */
 public class FlattenedPointCollection extends PointCollectionImpl {
+    private FeatureType featType;
     private final List<DsgFeatureCollection> dsgFeatCols;
 
     /**
      * Constructs a PointFeatureCollection by flattening {@code dsgFeatCol}. Collection metadata
-     * (i.e. {@link PointFeatureCollection#getName() name}, {@link PointFeatureCollection#getTimeUnit() timeUnit}, and
-     * {@link PointFeatureCollection#getAltUnits() altUnits}) are copied from {@code dsgFeatCol}.
+     * (i.e. {@link #getTimeUnit() timeUnit}, {@link #getAltUnits() altUnits}, and
+     * {@link #getCollectionFeatureType() featType}) are copied from {@code dsgFeatCol}.
      *
      * @param dsgFeatCol  a DsgFeatureCollection
      */
@@ -39,18 +36,19 @@ public class FlattenedPointCollection extends PointCollectionImpl {
 
     /**
      * Constructs a PointFeatureCollection that is the flattened aggregate of {@code dsgFeatCols}. Collection
-     * metadata (i.e. {@link PointFeatureCollection#getName() name}, {@link PointFeatureCollection#getTimeUnit()
-     * timeUnit}, and {@link PointFeatureCollection#getAltUnits() altUnits}) are copied from the first collection in
-     * the list.
+     * metadata (i.e. {@link #getTimeUnit() timeUnit}, {@link #getAltUnits() altUnits}, and
+     * {@link #getCollectionFeatureType() featType}) are copied from the first collection in the list.
      *
      * @param dsgFeatCols  a list of DsgFeatureCollections
      * @see ucar.nc2.ft.FeatureDatasetPoint#getPointFeatureCollectionList()
      */
     public FlattenedPointCollection(List<DsgFeatureCollection> dsgFeatCols) {
-        super("FlattenedPointCollection", CalendarDateUnit.unixDateUnit, null);  // Temporary values.
+        // The values of timeUnit, altUnits, and featType are temporary until the first DsgFeatureCollection is added.
+        super(FlattenedPointCollection.class.getSimpleName(), CalendarDateUnit.unixDateUnit, null);
+        this.featType = FeatureType.ANY_POINT;
         this.dsgFeatCols = dsgFeatCols;
 
-        // Replace this.name, this.dateUnit, and this.altUnits with "typical" values from the first collection.
+        // Replace this.timeUnit, this.altUnits, and this.featType with "typical" values from the first collection.
         // We can't be certain that those values are representative of ALL collections in dsgFeatCols, but it's
         // a decent bet because in practice, the first collection is often the ONLY collection.
         if (!dsgFeatCols.isEmpty()) {
@@ -59,9 +57,15 @@ public class FlattenedPointCollection extends PointCollectionImpl {
     }
 
     private void copyFieldsFrom(DsgFeatureCollection featCol) {
-        this.name = "Flattened-" + featCol.getName();
         this.timeUnit = featCol.getTimeUnit();
         this.altUnits = featCol.getAltUnits();
+        this.featType = featCol.getCollectionFeatureType();
+    }
+
+    @Nonnull
+    @Override
+    public FeatureType getCollectionFeatureType() throws IllegalStateException {
+        return featType;
     }
 
     @Override

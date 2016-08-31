@@ -15,6 +15,8 @@ import ucar.unidata.geoloc.LatLonPointImpl
 import ucar.unidata.geoloc.LatLonRect
 
 /**
+ * Tests FlattenedPointCollection.
+ *
  * @author cwardgar
  * @since 2015/06/26
  */

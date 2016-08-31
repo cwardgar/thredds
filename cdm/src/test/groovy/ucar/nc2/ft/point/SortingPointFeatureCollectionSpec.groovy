@@ -1,20 +1,36 @@
 package ucar.nc2.ft.point
 
 import org.junit.Assert
+import spock.lang.Shared
 import spock.lang.Specification
 import ucar.nc2.constants.FeatureType
-import ucar.nc2.ft.FeatureDatasetPoint
-import ucar.nc2.ft.PointFeatureCollection
-import ucar.nc2.ft.PointFeatureIterator
+import ucar.nc2.ft.*
 import ucar.nc2.time.CalendarDateUnit
 import ucar.unidata.util.point.PointTestUtil
 
 /**
+ * Tests SortingPointFeatureCollection.
+ *
  * @author cwardgar
  * @since 2015-11-02
  */
 class SortingPointFeatureCollectionSpec extends Specification {
-    def "empty collection"() {
+    @Shared FeatureDatasetPoint contigRaggedFdPoint
+    @Shared FlattenedPointCollection contigRaggedFlatPfc
+    
+    def setupSpec() {
+        // We're going to be using these point features a lot, so only read them in once.
+        contigRaggedFdPoint = PointTestUtil.openClassResourceAsPointDataset(getClass(), "continuousRagged.ncml")
+        contigRaggedFlatPfc = new FlattenedPointCollection(contigRaggedFdPoint.pointFeatureCollectionList)
+    }
+    
+    def cleanupSpec() {
+        contigRaggedFlatPfc?.finish()
+        contigRaggedFdPoint?.close()
+    }
+    
+    
+    def "metadata of empty collection"() {
         setup: "empty collection"
         PointFeatureCollection sortingPfc = new SortingPointFeatureCollection()
         
@@ -24,7 +40,7 @@ class SortingPointFeatureCollectionSpec extends Specification {
         sortingPfc.calendarDateRange == null
         sortingPfc.collectionFeatureType == FeatureType.ANY_POINT
         sortingPfc.extraVariables?.isEmpty()
-        sortingPfc.name == "tempName"
+        sortingPfc.name == sortingPfc.class.simpleName  // Always the same.
         sortingPfc.nobs == 0
         sortingPfc.timeUnit == CalendarDateUnit.unixDateUnit
         sortingPfc.size() == 0
@@ -32,16 +48,114 @@ class SortingPointFeatureCollectionSpec extends Specification {
         and: "iterators are empty"
         !sortingPfc.hasNext()
         !sortingPfc.pointFeatureIterator.hasNext()
+        
+        cleanup: "used internal iterator, so much finish()"
+        sortingPfc.finish()
+    }
+    
+    def "metadata of non-empty collection"() {
+        setup: "sortingPfc sorts contigRaggedFlatPfc using the default comparator"
+        PointFeatureCollection sortingPfc = new SortingPointFeatureCollection()
+        sortingPfc.addAll contigRaggedFlatPfc
+        
+        expect: "metadata will mirror metadata of contigRaggedFlatPfc"
+        // timeUnit, altUnits, and featType will be copied directly from contigRaggedFlatPfc. The others are computed.
+        sortingPfc.altUnits              == contigRaggedFlatPfc.altUnits
+        sortingPfc.boundingBox           == contigRaggedFlatPfc.boundingBox
+        sortingPfc.calendarDateRange     == contigRaggedFlatPfc.calendarDateRange
+        sortingPfc.collectionFeatureType == contigRaggedFlatPfc.collectionFeatureType
+        sortingPfc.extraVariables        == contigRaggedFlatPfc.extraVariables
+        sortingPfc.name                  == sortingPfc.class.simpleName  // Always the same.
+        sortingPfc.nobs                  == contigRaggedFlatPfc.nobs
+        sortingPfc.timeUnit              == contigRaggedFlatPfc.timeUnit
+        sortingPfc.size()                == contigRaggedFlatPfc.size()
+    }
+    
+    def "can't add() after getPointFeatureIterator()"() {
+        setup: "sortingPfc sorts contigRaggedFlatPfc using the default comparator"
+        PointFeatureCollection sortingPfc = new SortingPointFeatureCollection()
+        sortingPfc.addAll contigRaggedFlatPfc
+        
+        and: "get iterator"
+        sortingPfc.pointFeatureIterator
+        
+        when: "try to add more features"
+        sortingPfc.addAll contigRaggedFlatPfc
+    
+        then: "IllegalStateException is thrown"
+        IllegalStateException e = thrown()  // From SortingPointFeatureCollection.add()
+        e.message == "No more features can be added once getPointFeatureIterator() is called."
+    }
+    
+    def "timeUnit must match"() {
+        setup: "sortingPfc sorts contigRaggedFlatPfc using the default comparator"
+        PointFeatureCollection sortingPfc = new SortingPointFeatureCollection()
+        sortingPfc.addAll contigRaggedFlatPfc
+        
+        and: "define mock feature that has a different timeUnit than sortingPfc"
+        def pointFeat = Mock(PointFeature) {
+            getFeatureCollection() >> Mock(DsgFeatureCollection) {
+                getTimeUnit() >> CalendarDateUnit.of(null, "minutes since 1984-06-25 19:47:00")
+                // altUnits and featType don't matter here because timeUnit is checked first.
+            }
+        }
+        
+        when: "try to add the feature"
+        sortingPfc.add pointFeat
+    
+        then: "IllegalArgumentException is thrown"
+        IllegalArgumentException e = thrown()  // From SortingPointFeatureCollection.add()
+        e.message.endsWith "All features must have 'Day since 1970-01-01T00:00:00Z'."
+    }
+    
+    def "altUnits must match"() {
+        setup: "sortingPfc sorts contigRaggedFlatPfc using the default comparator"
+        PointFeatureCollection sortingPfc = new SortingPointFeatureCollection()
+        sortingPfc.addAll contigRaggedFlatPfc
+    
+        and: "define mock feature that has a different altUnits than sortingPfc"
+        def pointFeat = Mock(PointFeature) {
+            getFeatureCollection() >> Mock(DsgFeatureCollection) {
+                getTimeUnit() >> CalendarDateUnit.of(null, "day since 1970-01-01 00:00:00")  // Same as sortingPfc
+                getAltUnits() >> "yards"
+                // featType don't matter here because timeUnit and altUnits are checked first.
+            }
+        }
+    
+        when: "try to add the feature"
+        sortingPfc.add pointFeat
+    
+        then: "IllegalArgumentException is thrown"
+        IllegalArgumentException e = thrown()  // From SortingPointFeatureCollection.add()
+        e.message.endsWith "All features must have 'mm'."
+    }
+    
+    def "featType must match"() {
+        setup: "sortingPfc sorts contigRaggedFlatPfc using the default comparator"
+        PointFeatureCollection sortingPfc = new SortingPointFeatureCollection()
+        sortingPfc.addAll contigRaggedFlatPfc
+    
+        and: "define mock feature that has a different altUnits than sortingPfc"
+        def pointFeat = Mock(PointFeature) {
+            getFeatureCollection() >> Mock(DsgFeatureCollection) {
+                getTimeUnit() >> CalendarDateUnit.of(null, "day since 1970-01-01 00:00:00")  // Same as sortingPfc
+                getAltUnits() >> "mm"                                                        // Same as sortingPfc
+                getCollectionFeatureType() >> FeatureType.TRAJECTORY
+            }
+        }
+    
+        when: "try to add the feature"
+        sortingPfc.add pointFeat
+    
+        then: "IllegalArgumentException is thrown"
+        IllegalArgumentException e = thrown()  // From SortingPointFeatureCollection.add()
+        e.message.endsWith "All features must have 'STATION'."
     }
     
     def "iterators"() {
-        setup: "Open test file and flatten the PFCs within"
-        FeatureDatasetPoint fdPoint = PointTestUtil.openClassResourceAsPointDataset(getClass(), "continuousRagged.ncml")
-        FlattenedPointCollection flattenedPfc = new FlattenedPointCollection(fdPoint.pointFeatureCollectionList)
-    
-        and: "sortingPfc sorts flattenedPfc using the default comparator"
+        setup: "sortingPfc sorts contigRaggedFlatPfc using the default comparator"
         PointFeatureCollection sortingPfc = new SortingPointFeatureCollection()
-        sortingPfc.addAll flattenedPfc
+        sortingPfc.addAll contigRaggedFlatPfc
         
         expect: "hasNext() is called several times without accompanying next(), always returning true"
         PointFeatureIterator iter = sortingPfc.pointFeatureIterator
@@ -75,45 +189,35 @@ class SortingPointFeatureCollectionSpec extends Specification {
     }
     
     def "resetIteration() finish()es previous internal iterator"() {
-        setup:
-        def sortingPfc = createSortingPfcSpy()
+        setup: "Create a spy so we can examine method invocations. It sorts using default comparator"
+        PointFeatureCollection sortingPfcSpy = Spy(SortingPointFeatureCollection)
+        sortingPfcSpy.addAll contigRaggedFlatPfc
 
         when: "call resetIteration() in the the middle of an iteration"
-        sortingPfc.hasNext()
-        sortingPfc.next()
-        sortingPfc.resetIteration()
+        sortingPfcSpy.hasNext()
+        sortingPfcSpy.next()
+        sortingPfcSpy.resetIteration()
         
         then: "finish() is called once"
-        1 * sortingPfc.finish()
+        1 * sortingPfcSpy.finish()
     }
     
     def "internal iterator is finish()ed when there are no more elements"() {
-        setup:
-        def sortingPfc = createSortingPfcSpy()
+        setup: "Create a spy so we can examine method invocations. It sorts using default comparator"
+        PointFeatureCollection sortingPfcSpy = Spy(SortingPointFeatureCollection)
+        sortingPfcSpy.addAll contigRaggedFlatPfc
 
         when: "iterate through all elements in a 3-element PFC"
         3.times {
-            assert sortingPfc.hasNext()
-            sortingPfc.next()
+            assert sortingPfcSpy.hasNext()
+            sortingPfcSpy.next()
         }
 
         and: "do a final hasNext()"
-        assert !sortingPfc.hasNext()
+        assert !sortingPfcSpy.hasNext()
 
         then: "finish() is called once"
-        1 * sortingPfc.finish()
-    }
-    
-    SortingPointFeatureCollection createSortingPfcSpy() {
-        // Open test file and flatten the PFCs within
-        FeatureDatasetPoint fdPoint = PointTestUtil.openClassResourceAsPointDataset(getClass(), "continuousRagged.ncml")
-        FlattenedPointCollection flattenedPfc = new FlattenedPointCollection(fdPoint.pointFeatureCollectionList)
-        
-        // Create a Spy for SortingPointFeatureCollection and sort flattenedPfc using the default comparator
-        def sortingPfc1 = Spy(SortingPointFeatureCollection)
-        sortingPfc1.addAll flattenedPfc
-        
-        return sortingPfc1
+        1 * sortingPfcSpy.finish()
     }
 
     def "different sort methods, simple comparator"() {
@@ -131,8 +235,7 @@ class SortingPointFeatureCollectionSpec extends Specification {
         expect: "Sorted list and SortingPointFeatureCollection have same iteration order when using same comparator."
         PointTestUtil.assertIterablesEquals flattenedPfc.asList().toSorted(revStationNameComp), sortingPfc.asList()
 
-        cleanup:
-        flattenedPfc?.finish()
+        cleanup: "Close dataset"
         fdPoint?.close()
     }
     
@@ -173,9 +276,7 @@ class SortingPointFeatureCollectionSpec extends Specification {
         Assert.assertArrayEquals(expectedHumidities as float[], actualHumidities as float[], 0.01)
 
 
-        cleanup: "Close or finish resources, in reverse order that they were acquired"
-        sortingPfc?.finish()
-        inputPfc?.finish()
+        cleanup: "Close dataset"
         fdPointInput?.close()
     }
 }
