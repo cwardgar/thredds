@@ -45,6 +45,7 @@ import ucar.nc2.util.IO;
 
 import java.io.File;
 import java.io.InputStream;
+import java.util.Arrays;
 
 /**
  * Describe
@@ -69,7 +70,8 @@ public class TestWithLocalServer {
   }
 
   public static byte[] getContent(Credentials cred, String endpoint, int[] expectCodes, ContentType expectContentType) {
-    System.out.printf("req = '%s'%n", endpoint);
+    logger.debug("req = '{}'", endpoint);
+
     try (HTTPSession session = HTTPFactory.newSession(endpoint)) {
       if (cred != null) {
         session.setCredentials(cred);
@@ -86,7 +88,8 @@ public class TestWithLocalServer {
         boolean ok = false;
         for (int expectCode : expectCodes)
           if (expectCode == statusCode) ok = true;
-        Assert.assertTrue(ok);
+        Assert.assertTrue(String.format(
+                "Expected one of %s, but got %s.", Arrays.toString(expectCodes), statusCode), ok);
       }
 
       if (statusCode != 200) {

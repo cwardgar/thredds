@@ -11,15 +11,17 @@ import dap4.core.util.Escape;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.charset.Charset;
 
 public class Dump
 {
 
     //////////////////////////////////////////////////
     // Constants
+
+    static public boolean DUMPCSUM = false;
 
     static final String LBRACE = "{";
     static final String RBRACE = "}";
@@ -38,10 +40,12 @@ public class Dump
     //////////////////////////////////////////////////
     // Instance databuffer
 
-    public InputStream reader = null;
-    public boolean checksumming = true;
-    public ByteOrder order = null;
-    public StringBuilder buf = null;
+    protected ByteBuffer reader = null;
+    protected boolean checksumming = true;
+    protected ByteOrder remoteorder = null;
+    protected StringBuilder buf = null;
+    protected java.util.zip.Checksum localchecksum;
+    protected int lastchecksum = 0;
 
     //////////////////////////////////////////////////
     // Constructor(s)
@@ -54,12 +58,13 @@ public class Dump
     // Command processing
 
     public String
-    dumpdata(InputStream reader, boolean checksumming, ByteOrder order, Commands commands)
-        throws IOException
+    dumpdata(InputStream stream, boolean checksumming, ByteOrder remoteorder, Commands commands)
+            throws IOException
     {
-        this.reader = reader;
+        // Hack for debugging; use a bytebuffer internally
+        this.reader = ByteBuffer.wrap(DapUtil.readbinaryfile(stream));
         this.checksumming = checksumming;
-        this.order = order;
+        this.remoteorder = remoteorder;
         this.buf = new StringBuilder();
         commands.run(this);
         return this.buf.toString();
@@ -67,37 +72,31 @@ public class Dump
 
     public int
     printcount()
-        throws IOException
+            throws IOException
     {
-        ByteBuffer bytes = ByteBuffer.allocate(8).order(order);
-        for(int i = 0;i < 8;i++) {
-            int c = reader.read();
-            if(c < 0)
-                throw new IOException("Short DATADMR");
-            bytes.put((byte) (c & 0xFF));
-        }
-        bytes.flip();
+        ByteBuffer bytes = checksum(8);
         long l = bytes.getLong();
-        buf.append(String.format("count=%d%n",l));
+        buf.append(String.format("count=%d%n", l));
         return (int) l;
     }
 
     public void
     printvalue(char cmd, int typesize, int... indices)
-        throws IOException
+            throws IOException
     {
         long l = 0;
         ByteBuffer bytes = null;
         // for strings and opaque, the typesize is zero
         if(typesize == 0) {
-            bytes = readn(8);
+            bytes = checksum(8);
             l = bytes.getLong();
-            bytes = readn((int)l);
+            bytes = checksum((int) l);
         } else
-            bytes = readn(typesize);
+            bytes = checksum(typesize);
         if(indices != null && indices.length > 0) {
-            for(int index : indices)
+            for(int index : indices) {
                 buf.append(" [" + Integer.toString(index) + "]");
+            }
         }
         buf.append(" ");
         int switcher = (((int) cmd) << 4) + typesize;
@@ -163,7 +162,7 @@ public class Dump
             break;
         case ('O' << 4) + 0:
             buf.append("0x");
-            for(i = 0;i < bytes.limit();i++) {
+            for(i = 0; i < bytes.limit(); i++) {
                 int uint8 = bytes.get();
                 char c = hexchar((uint8 >> 4) & 0xF);
                 buf.append(c);
@@ -177,16 +176,17 @@ public class Dump
     }
 
     public void
-    printchecksum()
-        throws IOException
+    verifychecksum()
+            throws IOException
     {
         if(!checksumming)
             return;
-        buf.append("\tchecksum = ");
+        int localcrc32 = endchecksum();
+        // Get the checksum from the input stream
         ByteBuffer bbuf = readn(DapUtil.CHECKSUMSIZE);
-        for(int i=0;i<bbuf.limit();i++)
-            buf.append(String.format("%02x", (bbuf.get() & 0xFF)));
-        buf.append("\n");
+        int remotecrc32 = bbuf.getInt();
+        assert localcrc32 == remotecrc32;
+        newline();
     }
 
     public void
@@ -195,18 +195,59 @@ public class Dump
         buf.append("\n");
     }
 
-    ByteBuffer
-    readn(int n)
-        throws IOException
+    public void
+    startchecksum()
+    {
+        if(this.localchecksum == null)
+            this.localchecksum = new java.util.zip.CRC32();
+        this.localchecksum.reset();
+    }
+
+    protected int
+    endchecksum()
+    {
+        long crc = this.localchecksum.getValue(); // get the digest value
+        crc = (crc & 0x00000000FFFFFFFFL); /* crc is 32 bits */
+        this.lastchecksum = (int) crc;
+        return this.lastchecksum;
+    }
+
+    protected byte[]
+    readnbytes(int n)
+            throws IOException
     {
         byte[] bytes = new byte[n];
-        for(int i = 0;i < n;i++) {
-            int c = reader.read();
-            if(c < 0)
-                throw new IOException("Short DATADMR");
-            bytes[i] = (byte) (c & 0xFF);
+        try {
+            this.reader.get(bytes);
+        } catch (BufferUnderflowException e) {
+            throw new IOException("Short DATADMR");
         }
-        ByteBuffer result = ByteBuffer.wrap(bytes).order(order);
+        return bytes;
+    }
+
+    protected ByteBuffer
+    readn(int n)
+            throws IOException
+    {
+        byte[] bytes = readnbytes(n);
+        ByteBuffer result = ByteBuffer.wrap(bytes).order(this.remoteorder);
+        return result;
+    }
+
+    protected ByteBuffer
+    checksum(int n)
+            throws IOException
+    {
+        byte[] bytes = readnbytes(n);
+        localchecksum.update(bytes, 0, n);
+        if(DUMPCSUM) {
+            System.err.print("CCC ");
+            for(int i = 0; i < n; i++) {
+                System.err.printf("%02x", bytes[i]);
+            }
+            System.err.println();
+        }
+        ByteBuffer result = ByteBuffer.wrap(bytes).order(this.remoteorder);
         return result;
     }
 

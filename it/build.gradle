@@ -1,159 +1,154 @@
+import javax.xml.transform.TransformerFactory
 import edu.ucar.build.OpenedFilesListener
 import edu.ucar.build.tasks.FilterOpenedFilesTask
-import org.gradle.api.internal.changedetection.TaskArtifactState
-import org.gradle.api.internal.changedetection.TaskArtifactStateRepository
 
-description = "TDS - NetCDF-Java library integration Test module. This module contains all classes and settings " +
-        "needed to test the NetCDF-Java library in a servlet container. Starts up a TDS server and then sends " +
-        "requests to it. Relies on having access to cdmUnitTest directory, so can only be run at Unidata."
+description = """
+    TDS - NetCDF-Java library integration Test module. This module contains all classes and settings
+    needed to test the NetCDF-Java library in a servlet container. Starts up a TDS server and then sends
+    requests to it. Relies on having access to cdmUnitTest directory, so can only be run at Unidata.
+""".replaceAll("\\s+", " ").trim()
+
 ext.title = "Test Integration"
-ext.url = "http://www.unidata.ucar.edu/software/thredds/current/tds/TDS.html"
+ext.url = "https://www.unidata.ucar.edu/software/thredds/current/tds/TDS.html"
+
+apply from: "$rootDir/gradle/any/dependencies.gradle"
+apply from: "$rootDir/gradle/any/java.gradle"
+apply from: "$rootDir/gradle/any/testing.gradle"
+apply from: "$rootDir/gradle/any/coverage.gradle"
+// 'it' is not published
+apply from: "$rootDir/gradle/any/gretty.gradle"
+
+apply plugin: 'groovy'  // For Spock tests.
 
 dependencies {
     testCompile project(":cdm")
+    testCompile project(":httpservices")
+    testCompile project(":tdcommon")
+    testCompile(project(":tds")) {
+        exclude module: "log4j-slf4j-impl"  // We don't want TDS's logger binding.
+    }
+
     testRuntime project(":clcommon")
     testRuntime project(":grib")
-    testCompile project(":httpservices")
     testRuntime project(":opendap")
     testRuntime project(":visadCdm")
-
     testRuntime project(':dap4:d4cdm')
 
-    testRuntime libraries["jaxen"]
     testCompile libraries["jdom2"]
     testCompile libraries["commons-io"]
     testCompile libraries["joda-time"]
     testCompile libraries["httpcore"]
     testCompile libraries["httpclient"]
+    testCompile libraries["httpmime"]
     testCompile libraries["commons-lang3"]
+    testCompile libraries["spring-context"]
+    testCompile libraries["slf4j-api"]
+    testCompile libraries["xmlunit-core"]  // For comparing catalog XML.
 
-    testCompile libraries["com.eclipsesource.restfuse"]
+    testRuntime libraries["jaxen"]
+
+    // These are for Spock.
+    testCompile libraries["groovy-all"]
+    testCompile libraries["spock-core"]
 
     // Unlike the other subprojects, we do not need to add an SLF4J binding to testRuntime;
     // we're overlaying tds (see below), so we're already getting the binding that it declares.
 }
 
-test.enabled = false  // We're doing integrationTest instead.
-
-apply plugin: 'org.akhikhl.gretty'
-
-gretty {
-    servletContainer = 'tomcat7'
-    httpPort = 8081
-    contextPath = '/thredds'
-
-    // Overlay the "tds" webapp onto this project's webapp.
-    // This is how we're able to have tds integration tests outside of the tds project.
-    // See http://akhikhl.github.io/gretty-doc/Web-app-overlays.html
-    overlay ':tds'
-
-    integrationTestTask = 'integrationTest' // The name of an existing gradle task.
-
-    // By default, this field is 'false', which causes Gretty to start the embedded Tomcat process with a non-blocking
-    // entropy source. It is intended to make startup faster.
-    // See http://wiki.apache.org/tomcat/HowTo/FasterStartUp#Entropy_Source and http://goo.gl/NnJtpZ
-    //
-    // However, setting the "java.security.egd" system property as described in the Tomcat doc causes an error
-    // message when running tests on Windows: https://bz.apache.org/bugzilla/show_bug.cgi?id=56139
-    //
-    // Making this field 'true' prevents Gretty from setting that property, and thus avoids the error message.
-    // It turns out to have negligible effect on startup time, at least in this integration testing context.
-    //
-    // Also, a comment in the bug report mentions that this issue has been fixed as of Tomcat 7.0.53.
-    // However, it is actually still present as of 7.0.55
-    secureRandom = true
-}
-
 // Gretty will start the webapp before this task and shut it down afterward.
-task integrationTest(type: Test, group: 'Verification') {
+test {
     // isContentRootAvailable, isJenkins, and contentRootKey are defined on the root project in testing.gradle.
     if (!isContentRootAvailable && !isJenkins) {  // Don't skip tests on Jenkins, except NotJenkins ones.
         logger.warn "Skipping all integration tests (task \'$path\'): " +
                 "\'$contentRootKey\' property not defined."
 
         // We can't stand up a functioning TDS test instance without a valid content root,
-        // so disable the integration test task altogether.
+        // so disable the task altogether.
         enabled = false
     }
+}
 
-    // From TDS's pom.xml. I guess these are excluded because they're pretty crufty?
-    exclude 'thredds/tds/**'
+// Additional Gretty config specific to integration testing.
+gretty {
+    overlayAndApplyConfigOf ':tds'
 
-    doLast {
-        // Remove the system properties that Gretty added in AppBeforeIntegrationTestTask.integrationTestTask().
-        // org.gradle.api.internal.changedetection.changes.DefaultTaskArtifactStateRepository.TaskArtifactStateImpl.afterTask()
-        // seems to indicate that input/output snapshots are taken AFTER a task is executed, whereas snapshot checking
-        // occurs BEFORE. So, in order for the UP-TO-DATE machinery to work properly, we must undo the changes to
-        // input that Gretty made during the execution phase.
-        // TODO: Can I find anything more authoritive vis-a-vis snapshot time? Ask at the Gradle forums?
-        // TODO: Open an issue--or even a pull request--for this problem on the Gretty Github.
-        systemProperties.keySet().removeAll { it.startsWith("gretty.") }
+    // The normal 'test' task added by the Java plugin has nothing to do in this subproject, because every single
+    // test requires a running TDS. Therefore, we're repurposing the 'test' task for integration testing.
+    integrationTestTask = 'test'
+}
+
+////////////////////////////////////// Test fresh TDS installation //////////////////////////////////////
+
+// We use this variable in dynamic method and property names below. See https://goo.gl/NKg6tW.
+// It's deep, dark, Groovy magic to be sure. And while cool, it probably hurts readability here.
+// I did it to prove that we could create a custom Test task and its supporting sourceSets and setup/teardown tasks
+// in a generic, reusable way.
+String taskName = "freshInstallTest"
+
+sourceSets {
+    "$taskName" {
+        groovy.srcDir file("src/$taskName/groovy")
+        resources.srcDir file("src/$taskName/resources")
+
+        // Need 'sourceSets.test.output' because we use TestWithLocalServer in our test.
+        compileClasspath += sourceSets.test.output + configurations.testCompile
+        runtimeClasspath += output + sourceSets.test.output + configurations.testRuntime
     }
 }
 
-// Propagate all of integrationTest's system properties (which were set in testing.gradle) to the embedded Tomcat
-// instance. org.akhikhl.gretty.ServerConfig.systemProperties is null by default.
-// So, we can be sure that we're not trampling over any existing properties by doing this.
-gretty.systemProperties integrationTest.systemProperties
+task "before${taskName.capitalize()}"(type: org.akhikhl.gretty.AppBeforeIntegrationTestTask, group: "gretty") {
+    description = "Starts server before $taskName."
+    integrationTestTask taskName
 
-task integrationTestReport(type: JacocoReport, dependsOn: "integrationTest") {
-    // executionData must be closure, because appBeforeIntegrationTest is not defined yet.
-    // We must pass jacoco.destinationFile, not appBeforeIntegrationTest itself,
-    // because otherwise JacocoReport would translate task argument to closure and Project.files(...)
-    // (which is used internally by executionData) is not able to resolve recursive closures.
-    executionData { tasks.appBeforeIntegrationTest.jacoco.destinationFile }
+    gretty.afterEvaluate {
+        mustRunAfter tasks.appAfterIntegrationTest  // Make sure the server is shut down before we start it back up!
+    }
 
-    reports {
-        html.destination = reporting.file("jacoco/integrationTest/html")
+    debug = false  // Start the embedded sever in debug mode.
+    ext.nonExistentContentDir = new File(temporaryDir, "content")
+
+    // AppBeforeIntegrationTestTask also has a 'systemProperties' field, but the content of 'gretty.systemProperties'
+    // will take precedence. 'gretty.systemProperties' has a 'tds.content.root.path' value that is appropriate for
+    // :it:test, but not for taskName. The only way to override it is with this closure.
+    // See http://akhikhl.github.io/gretty-doc/Gretty-task-classes.html#_property_inheritance_override
+    prepareServerConfig {
+        // The embedded TDS that this task launches will have a non-existent content root directory.
+        systemProperty "tds.content.root.path", nonExistentContentDir.absolutePath
+    }
+
+    doFirst {
+        // Before starting the server, delete the content directory if it exists, as it may have been created by a
+        // previous task run. This is safe to use on non-existent files; see GroovyDoc at https://goo.gl/dbxTVZ.
+        // Also, it's okay to put this statement in an assert, because asserts are always enabled in Groovy.
+        assert nonExistentContentDir.deleteDir() : "Couldn't delete $nonExistentContentDir."
     }
 }
 
-// We want to modify the "appBeforeIntegrationTest" and "appAfterIntegrationTest" tasks, but like all Gretty tasks,
-// they won't be added to the project until after evaluation: http://goo.gl/qlFXTD
-// So, our modifications must also occur after evaluation.
-afterEvaluate {
-    // This task starts the embedded Tomcat server. It's expensive to do.
-    appBeforeIntegrationTest {
-        // We're trying hard to only execute appBeforeIntegrationTest if integrationTest will execute.
-        // We won't execute if integrationTest is disabled--that's simple.
-        // We also won't execute if integrationTest is considered UP-TO-DATE. That's much harder to determine, and we
-        // had to dig into internal Gradle APIs to find that info. Expect this to break in the future.
-        // There are still other cases where integrationTest execution could be skipped that we don't or can't check
-        // (e.g. one of its onlyIf()s returns false), but those situations are rare.
-        onlyIf {
-            Task task = tasks.integrationTest
-            if (!task.enabled) {    // May have been disabled above.
-                return false;
-            }
+task "$taskName"(type: Test, group: "verification") {
+    description = "Runs tests on a fresh installation of TDS (no existing catalog.xml)."
+    testClassesDir = sourceSets."$taskName".output.classesDir
+    classpath = sourceSets."$taskName".runtimeClasspath
+    mustRunAfter tasks.test
 
-            TaskArtifactState state = task.services.get(TaskArtifactStateRepository).getStateFor(task)
-            return !state.isUpToDate([])
-        }
+    // Use built-in Xalan XSLT instead of Saxon-HE, which our 'project(":tds")' dependency drags in.
+    // This works around an error we were seeing in org.xmlunit.builder.DiffBuilder.build():
+    //    java.lang.ClassCastException: net.sf.saxon.value.ObjectValue cannot be cast to net.sf.saxon.om.NodeInfo
+    //        ...
+    //        at thredds.tds.FreshTdsInstallSpec.TDS returns expected client catalog(FreshTdsInstallSpec.groovy:58)
+    // See buildSrc/build.gradle for another example of working around JAXP weirdness.
+    systemProperty TransformerFactory.name,  // See javax.xml.transform.TransformerFactory.newInstance().
+                   "com.sun.org.apache.xalan.internal.xsltc.trax.TransformerFactoryImpl"
 
-        // "jacoco" extension is created automatically for all AppBeforeIntegrationTest tasks
-        // and has type org.gradle.testing.jacoco.plugins.JacocoTaskExtension
-        jacoco {
-            // appBeforeIntegrationTest.exec gets larger every run if we don't do this. That breaks UP-TO-DATE
-            // checking. LOOK: The Test tasks have "true" here, yet I don't notice the undesirable behavior. Why?
-            append = false
+    // Replace the system property that was propagated from the Gradle process in any/testing.gradle.
+    // It is meant for :it:test only.
+    systemProperty "tds.content.root.path", tasks."before${taskName.capitalize()}".nonExistentContentDir.absolutePath
+}
 
-            // Don't use the same name as our integration task's execution data.
-            // That data may be useless (is it?), but overwriting it during execution foils UP-TO-DATE checking.
-            // destinationFile = new File(buildDir, 'jacoco/integrationTest.exec')
-        }
+check.dependsOn taskName
 
-        doFirst {
-            // tomcatBaseDir is the working directory for embedded tomcat. We want to write our logs there as well.
-            File tomcatBaseDir = launcherConfig.baseDir
-            gretty.logDir = new File(tomcatBaseDir, "logs").absolutePath
-        }
-    }
-
-    // This task stops the embedded Tomcat server.
-    appAfterIntegrationTest {
-        // Only run if appBeforeIntegrationTest did work.
-        onlyIf { tasks.appBeforeIntegrationTest.getDidWork() }
-    }
+task "after${taskName.capitalize()}"(type: org.akhikhl.gretty.AppAfterIntegrationTestTask, group: "gretty") {
+    description = "Stops server after $taskName."
+    integrationTestTask taskName
 }
 
 /////////////////////////// cdmUnitTest/ opened-files report ///////////////////////////

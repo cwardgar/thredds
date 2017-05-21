@@ -213,6 +213,8 @@ public class NCdumpW {
     boolean strict = false;
     String varNames = null;
     useUnsigned = false;
+    String trueDataset = null;
+    String fakeDataset = null;
 
     if (command != null) {
       StringTokenizer stoke = new StringTokenizer(command);
@@ -234,12 +236,23 @@ public class NCdumpW {
           useUnsigned = true;
         if (toke.equalsIgnoreCase("-cdl") || toke.equalsIgnoreCase("-strict"))
           strict = true;
-        if (toke.equalsIgnoreCase("-v") && stoke.hasMoreTokens())
+        if(toke.equalsIgnoreCase("-v") && stoke.hasMoreTokens())
           varNames = stoke.nextToken();
+        if (toke.equalsIgnoreCase("-datasetname") && stoke.hasMoreTokens()) {
+          fakeDataset = stoke.nextToken();
+          if(fakeDataset.length() == 0) fakeDataset = null;
+          if(fakeDataset != null) {
+            trueDataset = nc.getLocation();
+            nc.setLocation(fakeDataset);
+          }
+        }
       }
     }
 
-    return print(nc, out, showValues, ncml, strict, varNames, ct);
+    boolean ok = print(nc, out, showValues, ncml, strict, varNames, ct);
+    if(trueDataset != null && fakeDataset != null)
+      nc.setLocation(trueDataset);
+    return ok;
   }
 
   /**
@@ -526,8 +539,9 @@ public class NCdumpW {
       for (int ii = 0; ii < last; ii++) {
         Object o = ma.getObject(ima.set(ii));
         o = fixUnsigned(o, ma.isUnsigned());
+        if(ii > 0)
+          out.print(", ");
         out.print(o.toString());
-        if (ii != last - 1) out.print(", ");
         if (ct != null && ct.isCancel()) return;
       }
       out.print("}");
@@ -537,8 +551,9 @@ public class NCdumpW {
     indent.incr();
     for (int ii = 0; ii < last; ii++) {
       Array slice = ma.slice(0, ii);
+      if(ii > 0)
+        out.print(",");
       printArray(slice, out, indent, ct);
-      if (ii != last - 1) out.print(",");
       if (ct != null && ct.isCancel()) return;
     }
     indent.decr();
@@ -575,8 +590,8 @@ public class NCdumpW {
     indent.incr();
     for (int ii = 0; ii < last; ii++) {
       ArrayChar slice = (ArrayChar) ma.slice(0, ii);
+      if (ii > 0) out.print(",");
       printStringArray(out, slice, indent, ct);
-      if (ii != last - 1) out.print(",");
       if (ct != null && ct.isCancel()) return;
     }
     indent.decr();
@@ -590,7 +605,7 @@ public class NCdumpW {
     if(last < 0)
         out.printf("00");
     else
-        for (int i = 0; i <= last; i++) {
+        for (int i = bb.position(); i <= last; i++) {
           out.printf("%02x", bb.get(i));
         }
   }
@@ -623,8 +638,8 @@ public class NCdumpW {
     indent.incr();
     for (int ii = 0; ii < last; ii++) {
       ArrayObject slice = (ArrayObject) ma.slice(0, ii);
+      if (ii > 0) out.print(",");
       printStringArray(out, slice, indent, ct);
-      if (ii != last - 1) out.print(",");
       //out.print("\n");
     }
     indent.decr();
@@ -653,9 +668,12 @@ public class NCdumpW {
     out.println("\n" + indent + "{");
     indent.incr();
     IndexIterator iter = array.getIndexIterator();
+    boolean first = true;
     while (iter.hasNext()) {
       Array data = (Array) iter.next();
+      if(!first) { out.print(", "); }
       printArray(data, out, indent, ct);
+      first = false;
     }
     indent.decr();
     out.print(indent + "}");

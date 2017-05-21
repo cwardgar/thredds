@@ -67,6 +67,19 @@ abstract public class SaxEventHandler extends DefaultHandler
     public boolean parse(String document)
             throws SAXException
     {
+        // Trim and strip any leading <?xml...?>
+        StringBuilder doc = new StringBuilder(document.trim());
+        int index = doc.indexOf("<?xml");
+        if(index == 0) {
+            index = doc.indexOf("?>");
+            if(index < 0)
+                throw new SAXException("Document has malformed <?xml...?> prefix");
+            doc.delete(0,index+2);
+            // remove any leading crlf
+            while(doc.length() > 0 && "\r\n".indexOf(doc.charAt(0)) >= 0)
+                doc.deleteCharAt(0);
+            document = doc.toString();
+        }
         this.document = document;
         // Create the sax parser that will drive us with events
         try {
@@ -288,7 +301,8 @@ abstract public class SaxEventHandler extends DefaultHandler
     protected String
     locatedError(String msg)
     {
-        String locmsg = msg + String.format("; near %s%n", this.locator.toString());
+        String locmsg = msg + String.format("; near %d::%d%n",
+                this.locator.getLineNumber(),this.locator.getColumnNumber());
         return locmsg;
     }
 

@@ -1039,10 +1039,9 @@ public class Variable extends CDMNode implements VariableIF, ProxyReader, Attrib
 
     indent.incr();
     for (Attribute att : getAttributes()) {
-      buf.format("%s", indent);
-      if (strict) buf.format(NetcdfFile.makeValidCDLName(getShortName()));
-      buf.format(":");
-      att.writeCDL(buf, strict);
+      if(Attribute.suppress(att,strict)) continue;
+      buf.format("", indent);
+      att.writeCDL(buf, strict, getShortName());
       buf.format(";");
       if (!strict && (att.getDataType() != DataType.STRING))
         buf.format(" // %s", att.getDataType());
@@ -1181,10 +1180,29 @@ public class Variable extends CDMNode implements VariableIF, ProxyReader, Attrib
    * @param dims      space delimited list of dimension names. may be null or "" for scalars.
    */
   public Variable(NetcdfFile ncfile, Group group, Structure parent, String shortName, DataType dtype, String dims) {
+    this(ncfile, group, parent, shortName, dtype, (List<Dimension>)null);
+    if(group == null)
+      group = ncfile.getRootGroup();
+    setDimensions(Dimension.makeDimensionsList(group, dims));
+  }
+
+  /**
+   * Create a Variable. Also must call setDataType() and setDimensions()
+   *
+   * @param ncfile    the containing NetcdfFile.
+   * @param group     the containing group; if null, use rootGroup
+   * @param parent    parent Structure, may be null
+   * @param shortName variable shortName, must be unique within the Group
+   * @param dtype     the Variable's DataType
+   * @param dims      dimension names.
+   */
+  public Variable(NetcdfFile ncfile, Group group, Structure parent,
+                  String shortName, DataType dtype, List<Dimension> dims) {
     this(ncfile, group, parent, shortName);
     setDataType(dtype);
     setDimensions(dims);
   }
+
 
   /**
    * Copy constructor.
@@ -1370,7 +1388,8 @@ public class Variable extends CDMNode implements VariableIF, ProxyReader, Attrib
   public void setDimensions(String dimString) {
     if (immutable) throw new IllegalStateException("Cant modify");
     try {
-      this.dimensions = Dimension.makeDimensionsList(getParentGroup(), dimString);
+      setDimensions(Dimension.makeDimensionsList(getParentGroup(), dimString));
+      //this.dimensions = Dimension.makeDimensionsList(getParentGroup(), dimString);
       resetShape();
     } catch (IllegalStateException e) {
       throw new IllegalArgumentException("Variable " + getFullName() + " setDimensions = '" + dimString +

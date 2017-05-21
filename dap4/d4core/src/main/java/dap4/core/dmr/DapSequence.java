@@ -4,20 +4,18 @@
 
 package dap4.core.dmr;
 
+import java.util.Map;
+
 public class DapSequence extends DapStructure
 {
 
 //////////////////////////////////////////////////
 // Constructors
 
-    public DapSequence()
-    {
-        super();
-    }
-
     public DapSequence(String name)
     {
         super(name);
+        setTypeSort(TypeSort.Sequence);
     }
 
 } // class DapSequence

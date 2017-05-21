@@ -1,48 +1,29 @@
-/*
- * Copyright 1998-2015 John Caron and University Corporation for Atmospheric Research/Unidata
- *
- *  Portions of this software were developed by the Unidata Program at the
- *  University Corporation for Atmospheric Research.
- *
- *  Access and use of this software shall impose the following obligations
- *  and understandings on the user. The user is granted the right, without
- *  any fee or cost, to use, copy, modify, alter, enhance and distribute
- *  this software, and any derivative works thereof, and its supporting
- *  documentation for any purpose whatsoever, provided that this entire
- *  notice appears in all copies of the software, derivative works and
- *  supporting documentation.  Further, UCAR requests that the user credit
- *  UCAR/Unidata in any publications that result from the use of this
- *  software or in any product that includes this software. The names UCAR
- *  and/or Unidata, however, may not be used in any advertising or publicity
- *  to endorse or promote any products or commercial entity unless specific
- *  written permission is obtained from UCAR/Unidata. The user also
- *  understands that UCAR/Unidata is not obligated to provide the user with
- *  any support, consulting, training or assistance of any kind with regard
- *  to the use, operation and performance of this software nor to provide
- *  the user with any updates, revisions, new versions or "bug fixes."
- *
- *  THIS SOFTWARE IS PROVIDED BY UCAR/UNIDATA "AS IS" AND ANY EXPRESS OR
- *  IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *  DISCLAIMED. IN NO EVENT SHALL UCAR/UNIDATA BE LIABLE FOR ANY SPECIAL,
- *  INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING
- *  FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
- *  NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
- *  WITH THE ACCESS, USE OR PERFORMANCE OF THIS SOFTWARE.
- */
+/* Copyright 2012, UCAR/Unidata.
+   See the LICENSE file for more information.
+*/
 
 package thredds.server.dap4;
 
+import dap4.core.data.DSPRegistry;
+import dap4.core.util.DapContext;
 import dap4.core.util.DapException;
 import dap4.core.util.DapUtil;
-import dap4.servlet.*;
+import dap4.dap4lib.DapCodes;
+import dap4.dap4lib.DapLog;
+import dap4.servlet.DSPFactory;
+import dap4.servlet.DapCache;
+import dap4.servlet.DapController;
+import dap4.servlet.DapRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
+import thredds.core.TdsRequestedDataset;
+import ucar.nc2.NetcdfFile;
 
+import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
-import java.net.URL;
 
 @Controller
 @RequestMapping("/dap4")
@@ -67,8 +48,10 @@ public class Dap4Controller extends DapController
 
         public Dap4Factory()
         {
-            // Register known DSP classes: order is important.
-            registerDSP(ThreddsDSP.class, true);
+            // For TDS, we only need to register one DSP type: ThreddsDSP.
+            // This is because we will always serve only NetcdfFile objects.
+            // See D4TSServlet for a multiple registration case.
+            DapCache.dspregistry.register(ThreddsDSP.class, DSPRegistry.LAST);
         }
 
     }
@@ -80,6 +63,9 @@ public class Dap4Controller extends DapController
     //////////////////////////////////////////////////
     // Spring Elements
 
+    @Autowired
+    private ServletContext servletContext;
+
     @RequestMapping("**")
     public void handleRequest(HttpServletRequest req, HttpServletResponse res)
             throws IOException
@@ -87,19 +73,38 @@ public class Dap4Controller extends DapController
         super.handleRequest(req, res);
     }
 
+    /**
+     * Initialize servlet/controller
+     */
+    @Override
+    public void
+    initialize()
+    {
+        super.initialize();
+        try {
+            // Always prefer Nc4Iosp over HDF5
+            NetcdfFile.iospDeRegister(ucar.nc2.jni.netcdf.Nc4Iosp.class);
+            NetcdfFile.registerIOProviderPreferred(ucar.nc2.jni.netcdf.Nc4Iosp.class,
+                    ucar.nc2.iosp.hdf5.H5iosp.class
+            );
+        } catch (Exception e) {
+            DapLog.warn("Cannot load ucar.nc2.jni.netcdf.Nc4Iosp");
+        }
+    }
+
     //////////////////////////////////////////////////
     // Constructor(s)
 
     public Dap4Controller()
     {
-        super("dap4");
+        super();
     }
 
     //////////////////////////////////////////////////////////
 
     @Override
     protected void
-    doFavicon(DapRequest drq, String icopath)
+    doFavicon(String icopath, DapContext cxt)
             throws IOException
     {
         throw new UnsupportedOperationException("Favicon");
@@ -107,7 +112,7 @@ public class Dap4Controller extends DapController
 
     @Override
     protected void
-    doCapabilities(DapRequest drq)
+    doCapabilities(DapRequest drq, DapContext cxt)
             throws IOException
     {
         addCommonHeaders(drq);
@@ -118,36 +123,41 @@ public class Dap4Controller extends DapController
     }
 
     @Override
-    protected long
+    public long
     getBinaryWriteLimit()
     {
         return DEFAULTBINARYWRITELIMIT;
     }
 
     @Override
-    protected String
-    getResourcePath(DapRequest drq, String relpath)
-            throws IOException
+    public String
+    getServletID()
     {
-        // Using context information, we need to
-        // construct a file path to the specified dataset
-        URL realpathurl = servletcontext.getResource(relpath);
-        String realpath = null;
-        if(realpathurl.getProtocol().equalsIgnoreCase("file"))
-            realpath = realpathurl.getPath();
-        else
-            throw new DapException("Requested file not found " + realpathurl)
-                                .setCode(HttpServletResponse.SC_NOT_FOUND);
+        return "dap4";
+    }
 
-        // See if it really exists and is readable and of proper type
-        File dataset = new File(realpath);
-        if(!dataset.exists())
-            throw new DapException("Requested file does not exist: " + realpath)
-                    .setCode(HttpServletResponse.SC_NOT_FOUND);
+    @Override
+    public String
+    getResourcePath(DapRequest drq, String location)
+            throws DapException
+    {
+        String prefix = drq.getResourceRoot();
+        String realpath;
+        if(prefix != null) {
+            realpath = DapUtil.canonjoin(prefix, location);
+        } else
+            realpath = TdsRequestedDataset.getLocationFromRequestPath(location);
 
-        if(!dataset.canRead())
-            throw new DapException("Requested file not readable: " + realpath)
-                    .setCode(HttpServletResponse.SC_FORBIDDEN);
+        if(!TESTING) {
+            if(!TdsRequestedDataset.resourceControlOk(drq.getRequest(), drq.getResponse(), realpath))
+                throw new DapException("Not authorized: " + location)
+                        .setCode(DapCodes.SC_FORBIDDEN);
+        }
+        File f = new File(realpath);
+        if(!f.exists() || !f.canRead())
+            throw new DapException("Not found: " + location)
+                    .setCode(DapCodes.SC_NOT_FOUND);
+        //ncfile = TdsRequestedDataset.getNetcdfFile(this.request, this.response, path);
         return realpath;
     }
 

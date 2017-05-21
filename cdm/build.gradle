@@ -2,6 +2,13 @@ description = "The NetCDF-Java Library is a Java interface to NetCDF files, as w
         "scientific data formats."
 ext.title = "CDM core library"
 
+apply from: "$rootDir/gradle/any/dependencies.gradle"
+apply from: "$rootDir/gradle/any/java.gradle"
+apply from: "$rootDir/gradle/any/testing.gradle"
+apply from: "$rootDir/gradle/any/coverage.gradle"
+apply from: "$rootDir/gradle/any/archiving.gradle"
+apply from: "$rootDir/gradle/any/publishing.gradle"
+
 apply plugin: 'groovy'  // For Spock tests.
 
 dependencies {
@@ -10,10 +17,11 @@ dependencies {
 
     compile libraries["joda-time"]
     compile libraries["jdom2"]
-    compile libraries["jcip-annotations"]
+    compile libraries["jsr305"]
     compile libraries["protobuf-java"]
     compile libraries["guava"]
     compile libraries["jcommander"]
+    compile libraries["httpcore"]
 
     compile libraries["jsr305"]  // Nonnull
 
@@ -24,7 +32,6 @@ dependencies {
     testCompile libraries["spock-core"]
 
     testCompile libraries["commons-io"]
-    testCompile libraries["equalsverifier"]
 }
 
 javadoc {
@@ -47,16 +54,18 @@ javadoc {
 }
 
 // TODO: Use the Sync task for this.
-task releaseDocs(dependsOn: javadoc, group: 'Release') << {
-    String releaseDir = new File(webdir, "javadoc").absolutePath
-
-    ant.delete(dir: releaseDir)
-    ant.mkdir(dir: releaseDir)
-
-    copy {
-        println "copyDocs to " + releaseDir
-        from("build/docs/javadoc")
-        into releaseDir
+task releaseDocs(dependsOn: javadoc, group: 'Release') {
+    doLast {
+        String releaseDir = new File(webdir, "javadoc").absolutePath
+    
+        ant.delete(dir: releaseDir)
+        ant.mkdir(dir: releaseDir)
+    
+        copy {
+            println "copyDocs to " + releaseDir
+            from("build/docs/javadoc")
+            into releaseDir
+        }
     }
 }
 

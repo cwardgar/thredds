@@ -36,7 +36,6 @@
 
 package ucar.nc2.grib.grib1;
 
-import net.jcip.annotations.Immutable;
 import ucar.nc2.grib.GribNumbers;
 import ucar.nc2.grib.GribUtils;
 import ucar.nc2.grib.grib1.tables.Grib1Customizer;
@@ -47,6 +46,7 @@ import ucar.nc2.time.CalendarPeriod;
 import ucar.nc2.wmo.CommonCodeTable;
 import ucar.unidata.io.RandomAccessFile;
 
+import javax.annotation.concurrent.Immutable;
 import java.io.IOException;
 import java.util.Formatter;
 import java.util.zip.CRC32;
@@ -360,7 +360,7 @@ public final class Grib1SectionProductDefinition {
     f.format("21        Time Range Indicator : (%d) %s%n", getTimeRangeIndicator(), ptime.getTimeTypeName());
     f.format("22-23           N in statistic : (%d)%n", getNincluded());
     f.format("24                   N missing : (%d)%n", getNmissing());
-    f.format("                   Time  coord : %s == %s%n", ptime.getTimeCoord(), makeTimeCoord(getReferenceDate(), ptime));
+    f.format("                   Time  coord : %s == %s%n", ptime.getTimeCoord(), makeTimeCoord(ptime));
     Grib1ParamLevel plevel = cust.getParamLevel(this);
     f.format("10                  Level Type : (%d) %s%n", getLevelType(), plevel.getNameShort());
     f.format("             Level Description : %s%n", plevel.getDescription());
@@ -372,7 +372,7 @@ public final class Grib1SectionProductDefinition {
     f.format("                    BMS Exists : %s%n", bmsExists());
   }
 
-  private String makeTimeCoord(CalendarDate refDate, Grib1ParamTime ptime) {
+  private String makeTimeCoord(Grib1ParamTime ptime) {
     CalendarPeriod period = GribUtils.getCalendarPeriod(getTimeUnit());
     CalendarDateUnit unit = CalendarDateUnit.of(null, period.getField(), getReferenceDate());
     int timeCoord;

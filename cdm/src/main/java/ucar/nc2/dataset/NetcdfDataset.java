@@ -463,6 +463,21 @@ public class NetcdfDataset extends ucar.nc2.NetcdfFile {
   }
 
   /**
+   * Same as openDataset, but file is acquired through the File Cache, with defaultEnhanceMode,
+   * without the need of setting the enhanceMode via the signature.
+   * You still close with NetcdfDataset.close(), the release is handled automatically.
+   * You must first call initNetcdfFileCache() for caching to actually take place.
+   *
+   * @param location   location of file, passed to FileFactory
+   * @param cancelTask allow task to be cancelled; may be null.
+   * @return NetcdfDataset object
+   * @throws java.io.IOException on read error
+   */
+  static public NetcdfDataset acquireDataset(DatasetUrl location, ucar.nc2.util.CancelTask cancelTask) throws IOException {
+    return acquireDataset(null, location, defaultEnhanceMode, -1, cancelTask, null);
+  }
+
+  /**
    * Same as openDataset, but file is acquired through the File Cache, with defaultEnhanceMode.
    * You still close with NetcdfDataset.close(), the release is handled automatically.
    * You must first call initNetcdfFileCache() for caching to actually take place.
@@ -705,7 +720,7 @@ public class NetcdfDataset extends ucar.nc2.NetcdfFile {
   /**
    * Define the dap4 path
    */
-  static private final String DAP4_PATH = "dap4.cdm";
+  static private final String DAP4_PATH = "dap4.cdm.nc2";
 
   static private NetcdfFile acquireDODS(FileCache cache, FileFactory factory, Object hashKey,
                                         String location, int buffer_size, ucar.nc2.util.CancelTask cancelTask, Object spiObject) throws IOException {
@@ -776,7 +791,7 @@ public class NetcdfDataset extends ucar.nc2.NetcdfFile {
     NetcdfFile file;
     String target = DAP4_PATH + ".DapNetcdfFile";
     try {
-      dap4class = NetcdfDataset.class.getClassLoader().loadClass(target);
+      dap4class = NetcdfFile.class.getClassLoader().loadClass(target);
       constructormethod = dap4class.getConstructor(String.class, ucar.nc2.util.CancelTask.class);
       file = (NetcdfFile) constructormethod.newInstance(location, cancelTask);
       return file;
@@ -789,7 +804,7 @@ public class NetcdfDataset extends ucar.nc2.NetcdfFile {
       log.error(msg);
       throw new IOException(msg);
     } catch (InstantiationException e) {
-      String msg = "DapNetcdfFileFactory constructor cannot be invoked";
+      String msg = "DapNetcdfFile constructor cannot be invoked";
       log.error(msg);
       throw new IOException(msg);
     } catch (IllegalAccessException iace) {

@@ -21,7 +21,7 @@ public class DapAttribute extends DapNode
     protected List<String> namespaceList = new ArrayList<String>();
 
     protected DapType basetype = null;
-    protected List<Object> valuelist = new ArrayList<Object>();
+    protected String[] valuelist = null;
 
     //////////////////////////////////////////////////
     // Constructors
@@ -30,9 +30,10 @@ public class DapAttribute extends DapNode
     {
     }
 
-    public DapAttribute(String name)
+    public DapAttribute(String name, DapType basetype)
     {
         super(name);
+        setBaseType(basetype);
     }
 
     //////////////////////////////////////////////////
@@ -45,8 +46,11 @@ public class DapAttribute extends DapNode
 
     public void setNamespaceList(List<String> list)
     {
+        if(list == null) return;
         namespaceList.clear();
-        for(String ns : list) addNamespace(ns);
+        for(String ns : list) {
+            addNamespace(ns);
+        }
     }
 
     public void
@@ -66,23 +70,20 @@ public class DapAttribute extends DapNode
         this.basetype = basetype;
     }
 
-    public List<Object> getValues()
+    public String[] getValues()
     {
         return valuelist;
     }
 
     public void clearValues()
     {
-        if(valuelist == null)
-            valuelist = new ArrayList<Object>();
-        valuelist.clear();
+        valuelist = null;
     }
 
-    public void addValue(Object o)
+    public DapAttribute setValues(String[] o)
     {
-        if(valuelist == null)
-            valuelist = new ArrayList<Object>();
-        valuelist.add(o);
+        this.valuelist = o;
+        return this;
     }
 
 } // class DapAttribute

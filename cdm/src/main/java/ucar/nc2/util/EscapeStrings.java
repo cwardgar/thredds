@@ -50,10 +50,19 @@ public class EscapeStrings {
   static protected final String _allowableInDAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_!~*'-\"./";
   static protected final String _allowableInOGC = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()";
   static protected final char _URIEscape = '%';
+  static protected final char _JavaEscape = '\\';
   static final byte blank = ((byte) ' ');
   static final byte plus = ((byte) '+');
 
-  private static String xescapeString(String in, String allowable, char esc, boolean spaceplus) {
+  /**
+   *
+   * @param in   String to escape
+   * @param allowable  allowedcharacters
+   * @param esc   escape char prefix
+   * @param spaceplus  true =>convert ' ' to '+'
+     * @return
+     */
+    private static String xescapeString(String in, String allowable, char esc, boolean spaceplus) {
     try {
       StringBuffer out = new StringBuffer();
       if (in == null) return null;
@@ -507,33 +516,48 @@ public class EscapeStrings {
    */
   static public String backslashEscapeDapString(String s) {
     StringBuilder buf = new StringBuilder();
-    for (int i = 0; i < s.length(); i++) {
-      int c = s.charAt(i);
-      if (true) {
-        if (c < ' ') {
-          switch (c) {
-            case '\n':
-            case '\r':
-            case '\t':
-            case '\f':
-              buf.append((char) c);
-              break;
-            default:
-              buf.append(String.format("\\x%02x", (c & 0xff)));
-              break;
-          }
-          continue;
+    for(int i=0;i<s.length();i++) {
+	int c = s.charAt(i);
+        if(true) {
+            if(c < ' ') {
+                switch (c) {
+                case '\n': case '\r': case '\t': case '\f':
+                    buf.append((char)c);
+                    break;
+                default:
+                    buf.append(String.format("\\x%02x",(c&0xff)));
+                    break;
+                }
+                continue;
+            }
         }
-      }
-      if (c == '"') {
-        buf.append("\\\"");
-      } else if (c == '\\') {
-        buf.append('\\');
-      } else
-        buf.append((char) c);
+        if(c == '"') {
+            buf.append("\\\"");
+        } else if(c == '\\') {
+            buf.append("\\\\");
+        } else
+            buf.append((char)c);
     }
     return buf.toString();
   }
 
+  /**
+     * Given a CDM string, insert backslashes
+     * before <toescape> characters.
+     */
+    static public String backslashEscapeCDMString(String s, String toescape)
+    {
+      if(toescape == null || toescape.length() == 0) return s;
+      if(s == null || s.length() == 0) return s;
+      StringBuilder buf = new StringBuilder();
+      for(int i=0;i<s.length();i++) {
+        int c = s.charAt(i);
+        if(toescape.indexOf(c) >= 0) {
+          buf.append('\\');
+        }
+        buf.append((char)c);
+      }
+      return buf.toString();
+    }
 
 }

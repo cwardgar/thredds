@@ -41,7 +41,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.stereotype.Component;
-
 import thredds.client.catalog.tools.CatalogXmlWriter;
 import thredds.client.catalog.tools.DataFactory;
 import thredds.core.AllowedServices;
@@ -55,24 +54,28 @@ import thredds.server.catalog.DatasetScan;
 import thredds.server.ncss.controller.NcssDiskCache;
 import thredds.server.ncss.format.FormatsAvailabilityService;
 import thredds.server.ncss.format.SupportedFormat;
-import thredds.util.LoggerFactorySpecial;
-
+import ucar.nc2.NetcdfFile;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.nc2.grib.GribIndexCache;
 import ucar.nc2.grib.collection.GribCdmIndex;
 import ucar.nc2.jni.netcdf.Nc4Iosp;
 import ucar.nc2.ncml.Aggregation;
+import ucar.nc2.stream.CdmRemote;
+import ucar.nc2.util.DebugFlags;
+import ucar.nc2.util.DebugFlagsImpl;
 import ucar.nc2.util.DiskCache;
 import ucar.nc2.util.DiskCache2;
 import ucar.nc2.util.cache.FileCache;
-import ucar.nc2.util.log.LoggerFactory;
 import ucar.unidata.io.RandomAccessFile;
 import ucar.util.prefs.PreferencesExt;
 import ucar.util.prefs.XMLStore;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.Calendar;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -131,8 +134,15 @@ public class TdsInit implements ApplicationListener<ContextRefreshedEvent>, Disp
       synchronized (this) {
         if (!wasInitialized) {
           wasInitialized = true;
-          startupLog.info("TdsInit {}", event);
-          startupLog.info("TdsInit getContentRootPathAbsolute= " + tdsContext.getContentRootPathProperty());
+          startupLog.info("TdsInit: {}", event);
+          startupLog.info("TdsInit: getContentRootPathAbsolute= " + tdsContext.getContentRootPathProperty());
+
+          // set debug flags passed into the JVM, as long as flags are actually passed in
+          String tdsDebugFlags = tdsContext.getTdsDebugFlags();
+          if (!tdsDebugFlags.isEmpty()) {
+            startupLog.info(String.format("Setting the following debug flags: %s", tdsDebugFlags));
+            setDebugFlags(new DebugFlagsImpl(tdsDebugFlags));
+          }
 
           readState();
           initThreddsConfig();
@@ -148,6 +158,20 @@ public class TdsInit implements ApplicationListener<ContextRefreshedEvent>, Disp
         }
       }
     }
+  }
+
+  private void setDebugFlags(DebugFlags debugFlags) {
+    NetcdfFile.setDebugFlags(debugFlags);
+    ucar.nc2.iosp.hdf5.H5iosp.setDebugFlags(debugFlags);
+    ucar.nc2.ncml.NcMLReader.setDebugFlags(debugFlags);
+    ucar.nc2.dods.DODSNetcdfFile.setDebugFlags(debugFlags);
+    CdmRemote.setDebugFlags(debugFlags);
+    Nc4Iosp.setDebugFlags(debugFlags);
+    DataFactory.setDebugFlags(debugFlags);
+
+    ucar.nc2.FileWriter2.setDebugFlags(debugFlags);
+    ucar.nc2.ft.point.standard.PointDatasetStandardFactory.setDebugFlags(debugFlags);
+    ucar.nc2.grib.collection.Grib.setDebugFlags(debugFlags);
   }
 
   private void readState() {
@@ -170,7 +194,8 @@ public class TdsInit implements ApplicationListener<ContextRefreshedEvent>, Disp
     // read in persistent user-defined params from threddsConfig.xml
     File tdsConfigFile = new File(tdsContext.getThreddsDirectory(), tdsContext.getConfigFileProperty());
     if (!tdsConfigFile.exists()) {
-      startupLog.warn("TDS configuration file '{}' doesn't exist, using all defaults ", tdsConfigFile.getAbsolutePath());
+      startupLog.warn("TdsInit: TDS configuration file '{}' doesn't exist, using all defaults ", tdsConfigFile
+              .getAbsolutePath());
       return;
     }
     ThreddsConfig.init(tdsConfigFile.getPath());
@@ -191,7 +216,7 @@ public class TdsInit implements ApplicationListener<ContextRefreshedEvent>, Disp
         logCatalogInit.info("Latest Available TDS Version Info:");
         for (Map.Entry entry : latestVersionInfo.entrySet()) {
           message = "latest " + entry.getKey() + " version = " + entry.getValue();
-          startupLog.info("TdsContext: " + message);
+          startupLog.info("TdsInit: " + message);
           logCatalogInit.info("    " + message);
         }
         logCatalogInit.info("");
@@ -233,24 +258,6 @@ public class TdsInit implements ApplicationListener<ContextRefreshedEvent>, Disp
 
     // CDM configuration
 
-    // 4.3.17
-    // feature collection logging
-    /*
-     <FeatureCollection>
-        <RollingFileAppender>
-          <MaxFileSize>1 MB</MaxFileSize>
-          <MaxBackups>5</MaxBackups>
-          <Level>INFO</Level>
-        </RollingFileAppender>
-      </FeatureCollection>
-     */
-    startupLog.info("TdsInit: set LoggerFactorySpecial with logging directory " + System.getProperty("tds.log.dir"));
-    long maxFileSize = ThreddsConfig.getBytes("FeatureCollection.RollingFileAppender.MaxFileSize", 1000 * 1000);
-    int maxBackupIndex = ThreddsConfig.getInt("FeatureCollection.RollingFileAppender.MaxBackups", 10);
-    String level = ThreddsConfig.get("FeatureCollection.RollingFileAppender.Level", "INFO");
-    LoggerFactory fac = new LoggerFactorySpecial(maxFileSize, maxBackupIndex, level);
-    InvDatasetFeatureCollection.setLoggerFactory(fac);
-
     allowedServices.finish(); // finish when we know everything is wired
     InvDatasetFeatureCollection.setAllowedServices(allowedServices);
     DatasetScan.setSpecialServices(allowedServices.getStandardService(StandardService.resolver),
@@ -258,10 +265,12 @@ public class TdsInit implements ApplicationListener<ContextRefreshedEvent>, Disp
     DatasetScan.setAllowedServices(allowedServices);
     allowedServices.makeDebugActions();
 
-    /* <Netcdf4Clibrary>
-       <libraryPath>C:/cdev/lib/</libraryPath>
-       <libraryName>netcdf4</libraryName>
-     </Netcdf4Clibrary>
+    /*
+      <Netcdf4Clibrary>
+        <libraryPath>/usr/local/lib</libraryPath>
+        <libraryName>netcdf</libraryName>
+        <useForReading>false</useForReading>
+      </Netcdf4Clibrary>
     */
     String libraryPath = ThreddsConfig.get("Netcdf4Clibrary.libraryPath", null);
     String libraryName = ThreddsConfig.get("Netcdf4Clibrary.libraryName", null);
@@ -269,14 +278,25 @@ public class TdsInit implements ApplicationListener<ContextRefreshedEvent>, Disp
       Nc4Iosp.setLibraryAndPath(libraryPath, libraryName);
     }
 
-    //Netcdf4 library could be set as a environment variable or as a jvm parameter
-    if (Nc4Iosp.isClibraryPresent()) {
-      FormatsAvailabilityService.setFormatAvailability(SupportedFormat.NETCDF4, true);
-      FormatsAvailabilityService.setFormatAvailability(SupportedFormat.NETCDF4EXT, true);
+    Boolean useForReading = ThreddsConfig.getBoolean("Netcdf4Clibrary.useForReading", false);
+    if (useForReading) {
+      if (Nc4Iosp.isClibraryPresent()) {
+        try {
+          // Registers Nc4Iosp in front of all the other IOSPs already registered in NetcdfFile.<clinit>().
+          // Crucially, this means that we'll try to open a file with Nc4Iosp before we try it with H5iosp.
+          NetcdfFile.registerIOProvider(Nc4Iosp.class);
+        } catch (IllegalAccessException | InstantiationException e) {
+          startupLog.error("TdsInit: Unable to register IOSP: " + Nc4Iosp.class.getCanonicalName(), e);
+        }
+      } else {
+        startupLog.warn("TdsInit: In threddsConfig.xml, 'Netcdf4Clibrary.useForReading' is 'true' but the native C " +
+                "library couldn't be found on the system. Falling back to the pure-Java reader.");
+      }
+    }
 
-      if (libraryName == null) libraryName = "netcdf";
-      startupLog.info("netcdf4 c library loaded from jna_path='" + System.getProperty("jna.library.path") + "' " +
-              "libname=" + libraryName + "");
+    if (Nc4Iosp.isClibraryPresent()) {  // NetCDF-4 lib could be set as an environment variable or as a JVM parameter.
+      FormatsAvailabilityService.setFormatAvailability(SupportedFormat.NETCDF4, true);
+      // FormatsAvailabilityService.setFormatAvailability(SupportedFormat.NETCDF4EXT, true);
     }
 
     // how to choose the typical dataset ?
@@ -296,7 +316,7 @@ public class TdsInit implements ApplicationListener<ContextRefreshedEvent>, Disp
     long maxSize = ThreddsConfig.getBytes("DiskCache.maxSize", (long) 1000 * 1000 * 1000);  // default 1 Gbyte
     DiskCache.setRootDirectory(dir);
     DiskCache.setCachePolicy(alwaysUse);
-    startupLog.info("TdsInit:  CdmCache= " + dir + " scour = " + scourSecs + " maxSize = " + maxSize);
+    startupLog.info("TdsInit: CdmCache= " + dir + " scour = " + scourSecs + " maxSize = " + maxSize);
     if (scourSecs > 0) {
       Calendar c = Calendar.getInstance(); // contains current startup time
       c.add(Calendar.SECOND, scourSecs / 2); // starting in half the scour time
@@ -312,7 +332,7 @@ public class TdsInit implements ApplicationListener<ContextRefreshedEvent>, Disp
     String cachePathPolicy = ThreddsConfig.get("AggregationCache.cachePathPolicy", null);
     aggCache.setPolicy(cachePathPolicy);
     Aggregation.setPersistenceCache(aggCache);
-    startupLog.info("TdsInit:  AggregationCache= " + dir + " scour = " + scourSecs + " maxAgeSecs = " + maxAgeSecs);
+    startupLog.info("TdsInit: AggregationCache= " + dir + " scour = " + scourSecs + " maxAgeSecs = " + maxAgeSecs);
 
     /* 4.3.15: grib index file placement, using DiskCache2  */
     String gribIndexDir = ThreddsConfig.get("GribIndex.dir", new File(tdsContext.getThreddsDirectory(), "/cache/grib/").getPath());
@@ -338,7 +358,7 @@ public class TdsInit implements ApplicationListener<ContextRefreshedEvent>, Disp
     maxAgeSecs = ThreddsConfig.getSeconds("CdmRemote.maxAge", 60 * 60);
     DiskCache2 cdmrCache = new DiskCache2(dir, false, maxAgeSecs / 60, scourSecs / 60);
     CdmrFeatureController.setDiskCache(cdmrCache);
-    startupLog.info("TdsInit:  CdmRemote= " + dir + " scour = " + scourSecs + " maxAgeSecs = " + maxAgeSecs); */
+    startupLog.info("TdsInit: CdmRemote= " + dir + " scour = " + scourSecs + " maxAgeSecs = " + maxAgeSecs); */
 
     // turn back on for 4.6 needed for FMRC
     // turned off for 4.5 not used ??
@@ -385,7 +405,7 @@ public class TdsInit implements ApplicationListener<ContextRefreshedEvent>, Disp
     secs = ThreddsConfig.getSeconds("NetcdfFileCache.scour", 12 * 60);
     if (max > 0) {
       NetcdfDataset.initNetcdfFileCache(min, max, secs);
-      startupLog.info("NetcdfDataset.initNetcdfFileCache= [" + min + "," + max + "] scour = " + secs);
+      startupLog.info("TdsInit: NetcdfDataset.initNetcdfFileCache= [" + min + "," + max + "] scour = " + secs);
     }
 
     // GribCollection partitions: default is allow 100 - 150 objects, cleanup every 13 minutes
@@ -445,7 +465,7 @@ public class TdsInit implements ApplicationListener<ContextRefreshedEvent>, Disp
       store.save();
     } catch (IOException ioe) {
       ioe.printStackTrace();
-      startupLog.error("Prefs save failed", ioe);
+      startupLog.error("TdsInit: Prefs save failed", ioe);
     }
 
     // background threads

@@ -33,10 +33,10 @@
 
 package ucar.nc2;
 
-import net.jcip.annotations.Immutable;
 import ucar.ma2.DataType;
 import ucar.nc2.util.Indent;
 
+import javax.annotation.concurrent.Immutable;
 import java.util.*;
 
 /**
@@ -127,6 +127,16 @@ public class EnumTypedef extends CDMNode {
   public String lookupEnumString(int e) {
     String result = map.get(e);
     return (result == null) ? "Unknown enum value=" + e : result;
+  }
+
+  public Integer
+  lookupEnumInt(String name)
+  {
+     for(Map.Entry<Integer,String> entry: map.entrySet()) {
+       if(entry.getValue().equalsIgnoreCase(name))
+         return entry.getKey();
+     }
+    return null;
   }
 
   /**

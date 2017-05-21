@@ -48,7 +48,9 @@ import java.util.StringTokenizer;
  * The Dimension length must be > 0, except for an unlimited dimension which may have length = 0, and a vlen
  * Dimension which has length = -1.
  * <p/>
- * <p> Immutable once setImmutable() is called, except for an Unlimited Dimension, whose size can change.
+ * <p> Immutable if setImmutable() was called, except for an Unlimited Dimension, whose size can change.
+ * <p>
+ * Note: this class has a natural ordering that is inconsistent with equals.
  *
  * @author caron
  */
@@ -104,18 +106,23 @@ public class Dimension extends CDMNode implements Comparable {
    * @return list of dimensions
    * @throws IllegalArgumentException if cant find dimension or parse error.
    */
-  static public List<Dimension> makeDimensionsList(Group parentGroup, String dimString) throws IllegalArgumentException {
-
+  static public List<Dimension> makeDimensionsList(Group parentGroup, String dimString)
+          throws IllegalArgumentException {
     List<Dimension> newDimensions = new ArrayList<>();
-
-    if ((dimString == null) || (dimString.length() == 0)) { // scalar
-      return newDimensions; // empty list
-    }
+    if (dimString == null) // scalar
+         return newDimensions; // empty list
+    dimString = dimString.trim();
+    if (dimString.length() == 0) // scalar
+         return newDimensions; // empty list
 
     StringTokenizer stoke = new StringTokenizer(dimString);
     while (stoke.hasMoreTokens()) {
       String dimName = stoke.nextToken();
-      Dimension d = dimName.equals("*") ? Dimension.VLEN : parentGroup.findDimension(dimName);
+      Dimension d;
+      if(dimName.equals("*"))
+        d = Dimension.VLEN;
+      else
+        d = parentGroup.findDimension(dimName);
       if (d == null) {
         // if numeric - then its anonymous dimension
         try {
@@ -280,7 +287,7 @@ public class Dimension extends CDMNode implements Comparable {
   }
 
   /**
-   * Dimensions with the same name are equal.
+   * Dimensions with the same name are equal. This method is inconsistent with equals()!
    *
    * @param o compare to this Dimension
    * @return 0, 1, or -1

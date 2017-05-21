@@ -35,12 +35,13 @@ package ucar.nc2.time;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import net.jcip.annotations.Immutable;
 import org.joda.time.DurationFieldType;
 import org.joda.time.Period;
 import org.joda.time.PeriodType;
 import ucar.nc2.units.TimeDuration;
 import ucar.unidata.util.StringUtil2;
+
+import javax.annotation.concurrent.Immutable;
 
 /**
  * A CalendarPeriod is a logical duration of time, it requires a Calendar to convert to an actual duration of time.
@@ -246,7 +247,16 @@ public class CalendarPeriod {
   // start + offset = end
   public int getOffset(CalendarDate start, CalendarDate end) {
     if (start.equals(end)) return 0;
-    Period p = new Period(start.getDateTime(), end.getDateTime(), getPeriodType());
+    long start_millis = start.getDateTime().getMillis();
+    long end_millis = end.getDateTime().getMillis();
+
+    // 5 second slop
+    Period p;
+    if (start_millis < end_millis)
+      p = new Period(start_millis, end_millis + 5000, getPeriodType());
+    else
+      p = new Period(start_millis+5000, end_millis, getPeriodType());
+
     return p.get(getDurationFieldType());
   }
 

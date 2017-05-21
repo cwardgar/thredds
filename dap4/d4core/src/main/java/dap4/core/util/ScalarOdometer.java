@@ -19,13 +19,11 @@ public class ScalarOdometer extends Odometer
     //////////////////////////////////////////////////
     // Constants
 
-    static protected Long ZERO = new Long(0);
-
-
     public ScalarOdometer()
     {
         this.state = STATE.INITIAL;
-        this.indices = new long[]{0};
+        this.index = new Index(0);
+        this.slices = Slice.SCALARSLICES;
     }
 
     public long index()
@@ -38,22 +36,17 @@ public class ScalarOdometer extends Odometer
         return 1;
     }
 
-    public long[] getIndices()
-    {
-        return indices;
-    }
-
     public boolean hasNext()
     {
         return this.state != STATE.DONE;
     }
 
-    public Long next()
+    public Index next()
     {
         if(this.state == STATE.DONE)
             throw new NoSuchElementException();
         this.state = STATE.DONE;
-        return ZERO;
+        return Index.SCALAR;
     }
 
     public void remove()

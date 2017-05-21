@@ -9,7 +9,14 @@ import dap4.core.util.DapException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DapStructure extends DapVariable
+/**
+ * DapStructure is normally used as a singleton
+ * type for a variable, but for consistency,
+ * we track it as a type rather than a variable
+ * and create a separate variable whose basetype points
+ */
+
+public class DapStructure extends DapType
 {
 
     //////////////////////////////////////////////////
@@ -21,15 +28,9 @@ public class DapStructure extends DapVariable
     //////////////////////////////////////////////////
     // Constructors
 
-    public DapStructure()
-    {
-        super();
-	    this.setBaseType(DapType.STRUCT);
-    }
-
     public DapStructure(String name)
     {
-        super(name);
+        super(name, TypeSort.Structure);
     }
 
     //////////////////////////////////////////////////
@@ -38,7 +39,7 @@ public class DapStructure extends DapVariable
     public DapVariable
     findByName(String shortname)
     {
-        for(DapVariable field: fields) {
+        for(DapVariable field : fields) {
             if(shortname.equals(field.getShortName()))
                 return field;
         }
@@ -48,9 +49,20 @@ public class DapStructure extends DapVariable
     public int
     indexByName(String shortname)
     {
-        for(int i=0;i<fields.size();i++) {
-	        DapVariable field = fields.get(i);
+        for(int i = 0; i < fields.size(); i++) {
+            DapVariable field = fields.get(i);
             if(shortname.equals(field.getShortName()))
+                return i;
+        }
+        return -1;
+    }
+
+    public int
+    indexByField(DapVariable target)
+    {
+        for(int i = 0; i < fields.size(); i++) {
+            DapVariable field = fields.get(i);
+            if(field == target)
                 return i;
         }
         return -1;
@@ -66,27 +78,30 @@ public class DapStructure extends DapVariable
         return fields;
     }
 
-    public void setFields(List<? extends DapNode> fields)
-        throws DapException
+    /*public void setFields(DapVariable instance, List<? extends DapNode> fields)
+            throws DapException
     {
         fields.clear();
-        for(int i = 0; i < fields.size(); i++)
-            addField(fields.get(i));
+        for(int i = 0; i < fields.size(); i++) {
+            addField((DapVariable)fields.get(i),instance);
+        }
+    } */
+
+    public boolean isLeaf()
+    {
+        return false;
     }
 
-    public void addField(DapNode newfield)
-        throws DapException
+    public void addField(DapVariable newfield)
+            throws DapException
     {
-        if(!(newfield instanceof DapVariable))
-            throw new ClassCastException("DapVariable");
-        for(DapVariable v : fields) {
+        DapStructure ds = this;
+        for(DapVariable v : ds.fields) {
             if(v.getShortName().equals(newfield.getShortName()))
                 throw new DapException("DapStructure: attempt to add duplicate field: " + newfield.getShortName());
         }
-        fields.add((DapVariable) newfield);
-        newfield.setParent(this);
+        ds.fields.add((DapVariable) newfield);
     }
 
-    public boolean isLeaf() {return false;}
 
 } // class DapStructure

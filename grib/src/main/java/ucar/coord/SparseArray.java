@@ -32,12 +32,15 @@
  */
 package ucar.coord;
 
-import net.jcip.annotations.Immutable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.nc2.util.Misc;
 
-import java.util.*;
+import javax.annotation.concurrent.Immutable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Formatter;
+import java.util.List;
 
 /**
  * Store objects of type T in a sparse array.
@@ -178,7 +181,7 @@ public class SparseArray<T> {
     showMissingRecurse(0, sizes, info);
   }
 
-  int showMissingRecurse(int offset, List<Integer> sizes, Formatter f) {
+  private int showMissingRecurse(int offset, List<Integer> sizes, Formatter f) {
     if (sizes.size() == 0) return 0;
     if (sizes.size() == 1) {
       int len = sizes.get(0);
@@ -200,7 +203,6 @@ public class SparseArray<T> {
       f.format("%n");
       return total;
     }
-
   }
 
   public void showContent(Formatter f) {
@@ -208,6 +210,13 @@ public class SparseArray<T> {
     f.format("Content%n");
     for (T record : content)
       f.format(" %d %s %n", count++, record);
+  }
+
+  public void showTracks(Formatter f) {
+    int count = 0;
+    f.format("Track%n");
+    for (int t : track)
+      f.format(" %4d %5d %n", count++, t);
   }
 
   ////////////////////////////////////////////////////////////////////////////////////

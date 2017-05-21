@@ -3,11 +3,18 @@ description = "The ucar.units Java package is for decoding and encoding formatte
         "and for performing arithmetic operations on units (e.g. dividing one unit by another, " +
         "or raising a unit to a power)."
 ext.title = "UDUNITS"
-ext.url = "http://www.unidata.ucar.edu/software/udunits/"
+ext.url = "https://www.unidata.ucar.edu/software/udunits/"
+
+apply from: "$rootDir/gradle/any/dependencies.gradle"
+apply from: "$rootDir/gradle/any/java.gradle"
+apply from: "$rootDir/gradle/any/testing.gradle"
+apply from: "$rootDir/gradle/any/coverage.gradle"
+apply from: "$rootDir/gradle/any/archiving.gradle"
+apply from: "$rootDir/gradle/any/publishing.gradle"
 
 dependencies {
     compile libraries["joda-time"]
-    compile libraries["jcip-annotations"]
+    compile libraries["jsr305"]
 
     // udunits doesn't do any logging.
 }

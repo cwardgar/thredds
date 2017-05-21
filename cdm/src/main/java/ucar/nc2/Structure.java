@@ -89,6 +89,20 @@ public class Structure extends Variable {
     memberHash = new HashMap<>();
   }
 
+  /**
+   * Create a Structure "from scratch".
+   * @param ncfile    the containing NetcdfFile.
+   * @param group     the containing group; if null, use rootGroup
+   * @param parent    parent Structure, may be null
+   * @param shortName variable shortName, must be unique within the Group
+   * @param dimList   list of Dimensions
+     */
+    public Structure(NetcdfFile ncfile, Group group, Structure parent,
+                     String shortName, List<Dimension> dimList) {
+      this(ncfile, group, parent, shortName);
+      setDimensions(dimList);
+   }
+
   /** Copy constructor.
    * @param from  copy from this
    */
@@ -405,7 +419,7 @@ public class Structure extends Variable {
   }
 
   /**
-   * Get an efficient iterator over all the data in the Structure. 
+   * Get an efficient iterator over all the data in the Structure.
    *
    * This is the efficient way to get all the data, it can be much faster than reading one record at a time,
    *   and is optimized for large datasets.
@@ -597,12 +611,11 @@ public class Structure extends Variable {
     buf.format(";%s%n", extraInfo());
 
     for (Attribute att : getAttributes()) {
-      buf.format("%s  ", indent);
-      if (strict) buf.format( NetcdfFile.makeValidCDLName(getShortName()));
-      buf.format(":");
-      att.writeCDL(buf,  strict);
+      if(Attribute.suppress(att,strict)) continue;
+      buf.format("  ", indent);
+      att.writeCDL(buf, strict, getShortName());
       buf.format(";");
-      if (!strict && (att.getDataType() != DataType.STRING))
+      if(!strict && (att.getDataType() != DataType.STRING))
         buf.format(" // %s", att.getDataType());
       buf.format("%n");
     }

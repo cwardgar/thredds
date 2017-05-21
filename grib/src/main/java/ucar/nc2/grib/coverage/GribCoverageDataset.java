@@ -32,35 +32,13 @@
  */
 package ucar.nc2.grib.coverage;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Formatter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
 import com.google.common.collect.Lists;
-import net.jcip.annotations.Immutable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import thredds.featurecollection.FeatureCollectionConfig;
 import thredds.inventory.CollectionUpdateType;
-import ucar.coord.Coordinate;
-import ucar.coord.CoordinateEns;
-import ucar.coord.CoordinateRuntime;
-import ucar.coord.CoordinateTime;
-import ucar.coord.CoordinateTime2D;
-import ucar.coord.CoordinateTimeAbstract;
-import ucar.coord.CoordinateTimeIntv;
-import ucar.coord.CoordinateVert;
-import ucar.ma2.Array;
-import ucar.ma2.DataType;
-import ucar.ma2.InvalidRangeException;
-import ucar.ma2.Range;
-import ucar.ma2.RangeIterator;
-import ucar.ma2.SectionIterable;
+import ucar.coord.*;
+import ucar.ma2.*;
 import ucar.nc2.Attribute;
 import ucar.nc2.AttributeContainerHelper;
 import ucar.nc2.constants.*;
@@ -69,16 +47,22 @@ import ucar.nc2.grib.EnsCoord;
 import ucar.nc2.grib.GdsHorizCoordSys;
 import ucar.nc2.grib.TimeCoord;
 import ucar.nc2.grib.VertCoord;
+import ucar.nc2.grib.collection.Grib;
 import ucar.nc2.grib.collection.GribCdmIndex;
 import ucar.nc2.grib.collection.GribCollectionImmutable;
 import ucar.nc2.grib.collection.GribDataReader;
-import ucar.nc2.grib.collection.Grib;
 import ucar.nc2.grib.grib2.Grib2Utils;
 import ucar.nc2.time.CalendarDateRange;
+import ucar.nc2.time.CalendarPeriod;
 import ucar.nc2.units.SimpleUnit;
 import ucar.nc2.util.Optional;
 import ucar.unidata.io.RandomAccessFile;
 import ucar.unidata.util.Parameter;
+
+import javax.annotation.concurrent.Immutable;
+import java.io.IOException;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Create a FeatureDatasetCoverage from a GribCollection file.
@@ -575,6 +559,7 @@ public class GribCoverageDataset implements CoverageReader, CoordAxisReader {
       ntimes += timeCoord.getSize();
     }
     double[] values;
+    CalendarPeriod timeUnit = time2D.getTimeUnit();
 
     if (time2D.isTimeInterval()) {
       values = new double[2 * ntimes];
@@ -582,8 +567,8 @@ public class GribCoverageDataset implements CoverageReader, CoordAxisReader {
       for (int runIdx = 0; runIdx < nruns; runIdx++) {
         CoordinateTimeIntv timeIntv = (CoordinateTimeIntv) time2D.getTimeCoordinate(runIdx);
         for (TimeCoord.Tinv tinv : timeIntv.getTimeIntervals()) {
-          values[count++] = tinv.getBounds1() + time2D.getOffset(runIdx);
-          values[count++] = tinv.getBounds2() + time2D.getOffset(runIdx);
+          values[count++] = timeUnit.getValue() * tinv.getBounds1() + time2D.getOffset(runIdx);
+          values[count++] = timeUnit.getValue() * tinv.getBounds2() + time2D.getOffset(runIdx);
         }
       }
 
@@ -593,14 +578,14 @@ public class GribCoverageDataset implements CoverageReader, CoordAxisReader {
       for (int runIdx = 0; runIdx < nruns; runIdx++) {
         CoordinateTime coordTime = (CoordinateTime) time2D.getTimeCoordinate(runIdx);
         for (int val : coordTime.getOffsetSorted()) {
-          double b1 = val + time2D.getOffset(runIdx);
+          double b1 = timeUnit.getValue() * val + time2D.getOffset(runIdx);
           values[count++] = b1;
         }
       }
     }
 
     AttributeContainerHelper atts = new AttributeContainerHelper(time2D.getName());
-    atts.addAttribute(new Attribute(CDM.UNITS, time2D.getUnit()));
+    atts.addAttribute(new Attribute(CDM.UNITS, time2D.getUnit())); // LOOK why not udunit ??
     atts.addAttribute(new Attribute(CF.STANDARD_NAME, CF.TIME));
     atts.addAttribute(new Attribute(CDM.LONG_NAME, CF.TIME));
     atts.addAttribute(new Attribute(CDM.UDUNITS, time2D.getTimeUdUnit()));

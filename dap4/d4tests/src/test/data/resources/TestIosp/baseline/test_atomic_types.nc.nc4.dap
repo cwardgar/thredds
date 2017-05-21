@@ -1,31 +1,23 @@
-netcdf test_atomic_types.nc {
+netcdf test_atomic_types {
   types:
-    byte enum cloud_class_t { 'Clear' = 0, 'Cumulonimbus' = 1, 'Stratus' = 2, 'Stratocumulus' = 3, 'Cumulus' = 4, 'Altostratus' = 5, 'Nimbostratus' = 6, 'Altocumulus' = 7, 'Cirrostratus' = 8, 'Cirrocumulus' = 9, 'Cirrus' = 10, 'Missing' = 127};
+    byte enum cloud_class_t { Clear = 0, Cumulonimbus = 1, Stratus = 2, Stratocumulus = 3, Cumulus = 4, Altostratus = 5, Nimbostratus = 6, Altocumulus = 7, Cirrostratus = 8, Cirrocumulus = 9, Cirrus = 10, Missing = 127};
 
   variables:
     byte v8;
 
-    byte vu8;
-      :_FillValue = -1B; // byte
-      :_Unsigned = "true";
+    ubyte vu8;
 
     short v16;
 
-    short vu16;
-      :_FillValue = -1S; // short
-      :_Unsigned = "true";
+    ushort vu16;
 
     int v32;
 
-    int vu32;
-      :_FillValue = -1; // int
-      :_Unsigned = "true";
+    uint vu32;
 
     long v64;
 
-    long vu64;
-      :_FillValue = -2L; // long
-      :_Unsigned = "true";
+    ulong vu64;
 
     float vf;
 
@@ -38,13 +30,13 @@ netcdf test_atomic_types.nc {
     opaque vo;
 
     enum cloud_class_t primary_cloud;
-      :_FillValue = "Missing";
+      string primary_cloud:_FillValue = "Missing";
 
     enum cloud_class_t secondary_cloud;
-      :_FillValue = "Missing";
+      string secondary_cloud:_FillValue = "Missing";
 
   // global attributes:
-  :_CoordSysBuilder = "ucar.nc2.dataset.conv.DefaultConvention";
+  string :_CoordSysBuilder = "ucar.nc2.dataset.conv.DefaultConvention";
  data:
 v8 =-128
 vu8 =255

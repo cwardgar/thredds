@@ -1,100 +1,66 @@
-/* Copyright */
 package thredds.server.services;
 
+import org.apache.http.HttpStatus;
+import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import thredds.TestWithLocalServer;
 import thredds.util.ContentType;
-import ucar.httpservices.HTTPSession;
 import ucar.nc2.constants.CDM;
-import ucar.unidata.util.test.category.NeedsCdmUnitTest;
-import ucar.unidata.util.test.category.NotJenkins;
 
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Test Admin services, needs authentications
+ * Test Admin services, needs authentication
  *
  * @author caron
  * @since 7/6/2015
  */
 @RunWith(Parameterized.class)
-@Category({NeedsCdmUnitTest.class, NotJenkins.class})
-public class TestAdminDebug
-{
+public class TestAdminDebug {
+    private static Logger logger = LoggerFactory.getLogger(TestAdminDebug.class);
 
-    static final boolean show = false;
+    private static String urlPrefix =  "https://localhost:8443/thredds/";
+    private static Credentials goodCred = new UsernamePasswordCredentials("tds", "secret666");
+    private static Credentials badCred = new UsernamePasswordCredentials("bad", "worse");
 
-    static final String DFALTHOST = "localhost:8080";
-    static final String DFALTUSERPWD = "caron:secret666";
-    static final String BADUSERPWD = "bad:worse";
-
-    @Parameterized.Parameters(name = "{0}")
-    public static List<Object[]> getTestParameters()
-    {
+    @Parameterized.Parameters(name = "{0}") public static List<Object[]> getTestParameters() {
         List<Object[]> result = new ArrayList<>(10);
-        result.add(new Object[]{"admin/debug?General/showTdsContext"});
-        result.add(new Object[]{"admin/dir/content/thredds/logs/"});
-        result.add(new Object[]{"admin/dir/logs/"});
-        result.add(new Object[]{"admin/dir/catalogs/"});
-        result.add(new Object[]{"admin/spring/showControllers"});
+        result.add(new Object[] { "admin/debug?General/showTdsContext" });
+        result.add(new Object[] { "admin/dir/content/thredds/logs/" });
+        result.add(new Object[] { "admin/dir/logs/" });
+        result.add(new Object[] { "admin/dir/catalogs/" });
+        result.add(new Object[] { "admin/spring/showControllers" });
         return result;
     }
 
     ///////////////////////////////
 
-    //List<Object[]> result = null;
-    String path = null;
-    String url = null;
-    UsernamePasswordCredentials cred = null;
+    String path;
 
-    public TestAdminDebug(String path)
-    {
-	this.path = path;
-        String userpwd = System.getProperty("userpwd");
-        String hostport = System.getProperty("host");
-        if(userpwd == null) userpwd = DFALTUSERPWD;
-        if(hostport == null) hostport = DFALTHOST;
-        String url = "https://" + userpwd + "@" + hostport + "/" + path;
-        setup(url);
+    public TestAdminDebug(String path) {
+        this.path = path;
     }
 
-    void setup(String url)
-    {
-        //this.result = getTestParameters();
-        this.url = url;
-        URL u = null;
-        try {
-            u = new URL(url);
-            if(u.getUserInfo() == null)
-                throw new Exception("No user:password specified");
-            cred = new UsernamePasswordCredentials(u.getUserInfo());
-            HTTPSession.setGlobalCredentials(cred);
-        } catch (Exception e) {
-            e.printStackTrace();
+    @Test public void testOpenHtml() {
+        String endpoint = urlPrefix + path;
+        byte[] response = TestWithLocalServer.getContent(goodCred, endpoint, new int[] { 200 }, ContentType.html);
+        if (response != null) {
+            logger.debug(new String(response, CDM.utf8Charset));
         }
     }
 
-    @Test
-    public void testOpenHtml()
-    {
-        String endpoint = TestWithLocalServer.withPath(this.path);
-        byte[] response = TestWithLocalServer.getContent(cred, endpoint, new int[]{200}, ContentType.html);
-        if(show && response != null)
-            System.out.printf("%s%n", new String(response, CDM.utf8Charset));
-    }
+    @Test public void testOpenHtmlFail() {
+        String endpoint = urlPrefix + path;
+        byte[] response = TestWithLocalServer.getContent(badCred, endpoint, new int[] { HttpStatus.SC_UNAUTHORIZED, HttpStatus.SC_FORBIDDEN }, ContentType.html);
 
-    @Test
-    public void testOpenHtmlFail()
-    {
-        String endpoint = TestWithLocalServer.withPath(this.path);
-        byte[] response = TestWithLocalServer.getContent(cred, endpoint, new int[]{200}, ContentType.html);
-        if(show && response != null)
-            System.out.printf("%s%n", new String(response, CDM.utf8Charset));
+        if (response != null) {
+            logger.debug(new String(response, CDM.utf8Charset));
+        }
     }
 }

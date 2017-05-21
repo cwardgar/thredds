@@ -6,6 +6,7 @@ import ucar.nc2.NetcdfFile;
 import ucar.nc2.Variable;
 import ucar.nc2.util.AliasTranslator;
 import ucar.unidata.io.RandomAccessFile;
+import ucar.unidata.util.StringUtil2;
 
 import java.io.*;
 import java.util.*;
@@ -113,19 +114,19 @@ public class TestDir {
 
   private static String remoteTestServerPropName = "remotetestserver";
 
-  static public String remoteTestServer = "remotetest.unidata.ucar.edu";
+  static public String remoteTestServer = "localhost:8081";
 
   // DAP 2 Test server (for testing)
 
   static public String dap2TestServerPropName = "dts";
 
-  static public String dap2TestServer = "remotetest.unidata.ucar.edu";
+  static public String dap2TestServer = "localhost:8082";
 
   // DAP4 Test server (for testing)
 
   static public String dap4TestServerPropName = "d4ts";
 
-  static public String dap4TestServer = "remotetest.unidata.ucar.edu";
+  static public String dap4TestServer = "localhost:8083";
 
   //////////////////////////////////////////////////
 
@@ -184,12 +185,12 @@ public class TestDir {
       	threddsTestServer = tts;
 
     String rts = System.getProperty(remoteTestServerPropName);
-	if(rts != null && rts.length() > 0)
-		remoteTestServer = rts;
+    if(rts != null && rts.length() > 0)
+	    remoteTestServer = rts;
 
     String dts = System.getProperty(dap2TestServerPropName);
-      if(dts != null && dts.length() > 0)
-            dap2TestServer = dts;
+    if(dts != null && dts.length() > 0)
+	    dap2TestServer = dts;
 
     String d4ts = System.getProperty(dap4TestServerPropName);
     if(d4ts != null && d4ts.length() > 0)
@@ -351,6 +352,7 @@ public class TestDir {
       if (f.isDirectory())
         continue;
       if (((ff == null) || ff.accept(f)) && !name.endsWith(".exclude") ) {
+        name = StringUtil2.substitute(name, "\\", "/");
         System.out.println("----acting on file "+name);
         count += act.doAct(name);
       }
@@ -385,10 +387,10 @@ public class TestDir {
         for (Variable v : ncfile.getVariables()) {
           if (v.getSize() > max_size) {
             Section s = makeSubset(v);
-            System.out.println("  Try to read variable " + v.getNameAndDimensions() + " size= " + v.getSize() + " section= " + s);
+            //System.out.println("  Try to read variable " + v.getNameAndDimensions() + " size= " + v.getSize() + " section= " + s);
             v.read(s);
           } else {
-            System.out.println("  Try to read variable " + v.getNameAndDimensions() + " size= " + v.getSize());
+            //System.out.println("  Try to read variable " + v.getNameAndDimensions() + " size= " + v.getSize());
             v.read();
           }
         }

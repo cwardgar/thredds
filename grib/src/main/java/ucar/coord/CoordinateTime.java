@@ -32,7 +32,6 @@
  */
 package ucar.coord;
 
-import net.jcip.annotations.Immutable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ucar.nc2.grib.GribUtils;
@@ -41,18 +40,22 @@ import ucar.nc2.grib.grib1.Grib1ParamTime;
 import ucar.nc2.grib.grib1.Grib1Record;
 import ucar.nc2.grib.grib1.Grib1SectionProductDefinition;
 import ucar.nc2.grib.grib1.tables.Grib1Customizer;
+import ucar.nc2.grib.grib2.Grib2Pds;
+import ucar.nc2.grib.grib2.Grib2Record;
 import ucar.nc2.grib.grib2.Grib2Utils;
 import ucar.nc2.time.CalendarDate;
 import ucar.nc2.time.CalendarDateRange;
 import ucar.nc2.time.CalendarDateUnit;
-import ucar.nc2.grib.grib2.Grib2Pds;
-import ucar.nc2.grib.grib2.Grib2Record;
 import ucar.nc2.time.CalendarPeriod;
 import ucar.nc2.util.Counters;
 import ucar.nc2.util.Indent;
 import ucar.nc2.util.Misc;
 
-import java.util.*;
+import javax.annotation.concurrent.Immutable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Formatter;
+import java.util.List;
 
 /**
  * Time coordinates that are offsets from the reference date (not intervals).
@@ -79,29 +82,6 @@ public class CoordinateTime extends CoordinateTimeAbstract implements Coordinate
   public List<Integer> getOffsetSorted() {
     return offsetSorted;
   }
-
-  /* @Override
-  public int findIndexContaining(double need) {
-    double bestDiff = Double.MAX_VALUE;
-    int bestIdx = 0;
-    for (int i = 0; i < offsetSorted.size(); i++) {
-      Integer coord = offsetSorted.get(i);
-      double diff = Math.abs(need - coord);
-      if (diff < bestDiff) {
-        bestDiff = diff;
-        bestIdx = i;
-      }
-    }
-    return bestIdx;
-  }
-  @Override
-  public int findIndexContaining(double need) {
-    for (int i = 0; i < offsetSorted.size(); i++) {
-      Integer coord = offsetSorted.get(i);
-      if (coord == (int) need) return i;
-    }
-    return -1;
-  } */
 
   @Override
   public List<? extends Object> getValues() {
@@ -138,8 +118,8 @@ public class CoordinateTime extends CoordinateTimeAbstract implements Coordinate
   @Override
   public CalendarDateRange makeCalendarDateRange(ucar.nc2.time.Calendar cal) {
     CalendarDateUnit cdu = CalendarDateUnit.withCalendar(cal, periodName + " since " + refDate.toString());
-    CalendarDate start = cdu.makeCalendarDate(offsetSorted.get(0));
-    CalendarDate end = cdu.makeCalendarDate(offsetSorted.get(getSize() - 1));
+    CalendarDate start = cdu.makeCalendarDate(timeUnit.getValue() * offsetSorted.get(0));
+    CalendarDate end = cdu.makeCalendarDate(timeUnit.getValue() * offsetSorted.get(getSize() - 1));
     return CalendarDateRange.of(start, end);
   }
 
@@ -155,7 +135,7 @@ public class CoordinateTime extends CoordinateTimeAbstract implements Coordinate
 
   @Override
   public void showCoords(Formatter info) {
-    info.format("Time offsets: (%s) ref=%s %n", getUnit(), getRefDate());
+    info.format("Time offsets: (%s) ref=%s %n", getTimeUnit(), getRefDate());
     for (Integer cd : offsetSorted)
       info.format("   %3d%n", cd);
   }

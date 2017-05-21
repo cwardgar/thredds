@@ -1,3 +1,37 @@
+// The buildscript {} block is evaluated before anything else in the script (regardless of location in file).
+// See http://goo.gl/EO8S1k. So, might as well put it first.
+//
+// Due to a Gradle limitation, we cannot externalize this buildscript block into a script plugin. However, we can
+// exploit the fact that dependencies specified in a parent's buildscript block are visible to all children.
+// Thus, as long as we declare all plugins here, no child needs its own buildscript block. See http://goo.gl/2y3KhZ.
+buildscript {
+    // Add the "libraries" ExtraProperty. It should be usable from the rest of this script as well.
+    // See http://goo.gl/9bixNV
+    apply from: "$rootDir/gradle/any/dependencies.gradle"
+
+    // The buildscript {} block is odd: even though we applied dependencies.gradle above, the repositories therein
+    // do not get included here. Instead, we must explicitly define the repos again. Yay for duplication.
+    repositories {
+        jcenter()
+        maven {
+            url "https://plugins.gradle.org/m2/"  // For Gradle plugins.
+        }
+        maven {
+            url "https://dl.bintray.com/cwardgar/maven/"  // For 'com.cwardgar.gretty-fork:gretty'.
+        }
+    }
+
+    dependencies {
+        classpath libraries["gretty"]
+        classpath libraries["shadow"]
+        classpath libraries["coveralls-gradle-plugin"]
+        classpath libraries["sonarqube-gradle-plugin"]
+        classpath libraries["license-gradle-plugin"]
+
+        classpath libraries["guava"]  // For various utility methods used in the build scripts.
+    }
+}
+
 allprojects {
     // Matches Maven's "project.groupId". Used in MANIFEST.MF for "Implementation-Vendor-Id".
     group = "edu.ucar"
@@ -26,48 +60,22 @@ ext {
     vendor = "UCAR/Unidata"
 
     // Matches Maven's "project.url". Used in MANIFEST.MF for "Implementation-URL".
-    url = "http://www.unidata.ucar.edu/software/thredds/current/netcdf-java/documentation.htm"
+    url = "https://www.unidata.ucar.edu/software/thredds/current/netcdf-java/documentation.htm"
 
     SimpleDateFormat iso_8601_format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ")
     buildTimestamp = iso_8601_format.format(new Date())
-
-    // Project groups:
-    javaProjects = allprojects.findAll { !(it.path in [ ':', ':dap4' ]) }
-    testedProjects = allprojects.findAll { it.path in [ ':cdm', ':cdm-test', ':dap4:d4tests', ':grib', ':it',
-            ':legacy', ':opendap', ':tds', ':udunits', ':ui', ':waterml' ] }
-
-    internalProjects = allprojects.findAll { it.path in [
-            ':dap4', ':dap4:d4tests', ':dap4:d4ts', ':opendap:dtswar',
-            ':it', ':cdm-test', ':testUtil'
-    ] }
-    publishedProjects = allprojects - internalProjects      // Includes root project.
 }
 
-// Due to a Gradle limitation, we cannot externalize this buildscript block into a script plugin. However, we can
-// exploit the fact that dependencies specified in a parent's buildscript block are visible to all children.
-// Thus, as long as we declare all plugins here, no child needs its own buildscript block. See http://goo.gl/2y3KhZ.
-buildscript {
-    apply from: "$rootDir/gradle/dependencies.gradle"
+apply from: "$rootDir/gradle/root/testing.gradle"
+apply from: "$rootDir/gradle/root/coverage.gradle"
+apply from: "$rootDir/gradle/root/fatJars.gradle"
+apply from: "$rootDir/gradle/root/publishing.gradle" // Creates pubs for artifacts created in fatJars.gradle
+apply from: "$rootDir/gradle/root/sonarqube.gradle"
+apply from: "$rootDir/gradle/root/license.gradle"
 
-    repositories {
-        jcenter()
-    }
-    dependencies {
-        classpath libraries["gretty"]
-        classpath libraries["shadow"]
-        classpath libraries["coveralls-gradle-plugin"]
-        classpath libraries["gradle-extra-configurations-plugin"]
-    }
-}
+apply from: "$rootDir/gradle/any/coverage.gradle"    // Modifies Test task from root/testing.gradle and
+                                                     // JacocoReport task from root/coverage.gradle
+apply from: "$rootDir/gradle/any/archiving.gradle"   // Modifies Jar tasks created in fatJars.gradle
+apply from: "$rootDir/gradle/any/publishing.gradle"  // Modifies pubs created in root/publishing.gradle
 
-apply from: "$rootDir/gradle/dependencies.gradle"
-apply from: "$rootDir/gradle/java.gradle"
-apply from: "$rootDir/gradle/archiving.gradle"
-
-apply from: "$rootDir/gradle/testing.gradle"
-apply from: "$rootDir/gradle/coverage.gradle"
 apply from: "$rootDir/gradle/openedFiles.gradle"  // Order dependency: uses configuration from testing.gradle.
-
-// Order dependency: publishing.gradle creates publications for artifacts created in fatJars.gradle.
-apply from: "$rootDir/gradle/fatJars.gradle"
-apply from: "$rootDir/gradle/publishing.gradle"

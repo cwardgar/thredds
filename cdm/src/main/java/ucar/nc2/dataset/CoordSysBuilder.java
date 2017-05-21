@@ -1,34 +1,5 @@
 /*
- * Copyright 1998-2015 John Caron and University Corporation for Atmospheric Research/Unidata
- *
- *  Portions of this software were developed by the Unidata Program at the
- *  University Corporation for Atmospheric Research.
- *
- *  Access and use of this software shall impose the following obligations
- *  and understandings on the user. The user is granted the right, without
- *  any fee or cost, to use, copy, modify, alter, enhance and distribute
- *  this software, and any derivative works thereof, and its supporting
- *  documentation for any purpose whatsoever, provided that this entire
- *  notice appears in all copies of the software, derivative works and
- *  supporting documentation.  Further, UCAR requests that the user credit
- *  UCAR/Unidata in any publications that result from the use of this
- *  software or in any product that includes this software. The names UCAR
- *  and/or Unidata, however, may not be used in any advertising or publicity
- *  to endorse or promote any products or commercial entity unless specific
- *  written permission is obtained from UCAR/Unidata. The user also
- *  understands that UCAR/Unidata is not obligated to provide the user with
- *  any support, consulting, training or assistance of any kind with regard
- *  to the use, operation and performance of this software nor to provide
- *  the user with any updates, revisions, new versions or "bug fixes."
- *
- *  THIS SOFTWARE IS PROVIDED BY UCAR/UNIDATA "AS IS" AND ANY EXPRESS OR
- *  IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *  DISCLAIMED. IN NO EVENT SHALL UCAR/UNIDATA BE LIABLE FOR ANY SPECIAL,
- *  INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING
- *  FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
- *  NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
- *  WITH THE ACCESS, USE OR PERFORMANCE OF THIS SOFTWARE.
+ * Copyright (c) 1998-2017 University Corporation for Atmospheric Research/Unidata
  */
 package ucar.nc2.dataset;
 
@@ -236,9 +207,6 @@ public class CoordSysBuilder implements CoordSysBuilderIF {
       conventionList.add(0, new Convention(conventionName, c, match));
     else
       conventionList.add(new Convention(conventionName, c, match));
-
-    // user stuff will override here
-    // conventionHash.put(conventionName, c);
   }
 
   static private Class matchConvention(String convName) {
@@ -834,10 +802,6 @@ public class CoordSysBuilder implements CoordSysBuilderIF {
    * it will be asssigned to the data variable.
    */
   protected void makeCoordinateSystemsImplicit(NetcdfDataset ncDataset) {
-    // do largest rank first
-    //List<VarProcess> varsSorted = new ArrayList<VarProcess>(varList);
-    //Collections.sort(varsSorted, new VarProcessSorter());
-
     for (VarProcess vp : varList) {
       if (!vp.hasCoordinateSystem() && vp.maybeData()) {
         List<CoordinateAxis> dataAxesList = vp.findCoordinateAxes(true);
@@ -901,7 +865,6 @@ public class CoordSysBuilder implements CoordSysBuilderIF {
           parseInfo.format(" created maximal CoordSystem '%s' for var= %s%n", csnew.getName(), ve.getFullName());
         }
       }
-
     }
   }
 
@@ -915,14 +878,6 @@ public class CoordSysBuilder implements CoordSysBuilderIF {
    * @return true if all of the dimensions in the axis also appear in the variable.
    */
   protected boolean isCoordinateAxisForVariable(Variable axis, VariableEnhanced v) {
-    /* sequence members can only have coords in same structure
-    if (v.getDataType() == DataType.SEQUENCE) return false;
-    Structure p = v.getParentStructure();
-    if (p != null && ) {
-
-    } */
-
-
     List<Dimension> varDims = v.getDimensionsAll();
     List<Dimension> axisDims = axis.getDimensionsAll();
 
@@ -938,18 +893,6 @@ public class CoordSysBuilder implements CoordSysBuilderIF {
       }
     }
     return true;
-  }
-
-  protected boolean hasXY(List<CoordinateAxis> coordAxes) {
-    boolean hasX = false, hasY = false, hasLat = false, hasLon = false;
-    for (CoordinateAxis axis : coordAxes) {
-      AxisType axisType = axis.getAxisType();
-      if (axisType == AxisType.GeoX) hasX = true;
-      if (axisType == AxisType.GeoY) hasY = true;
-      if (axisType == AxisType.Lat) hasLat = true;
-      if (axisType == AxisType.Lon) hasLon = true;
-    }
-    return (hasLat && hasLon) || (hasX && hasY);
   }
 
   /**
@@ -1198,37 +1141,6 @@ public class CoordSysBuilder implements CoordSysBuilderIF {
       coordAxisTypes = ds.findAttValueIgnoreCase(v, _Coordinate.AxisTypes, null);
       coordTransformType = ds.findAttValueIgnoreCase(v, _Coordinate.TransformType, null);
       isCoordinateTransform = (coordTransformType != null) || (coordAxisTypes != null);
-
-      /* WTF? JC 7/15/2010
-      /* Old GRIB code basically has a bug in it for lat/lon coordinates
-         String latLonCoordSys;
-            :_CoordinateAxes = "time lat lon";
-         this is a Coordinate System Variable getting misidentified as a data variable, because its doesnt qualify as a CoordinateSystem
-           see http://www.unidata.ucar.edu/software/netcdf-java/reference/CoordinateAttributes.html
-         but it must be a CoordinateSystem because the  _CoordinateAxes dont fit the variable.
-
-         Problem:
-         For some data, some axes are being constructed with anon dimensions, so that isCoordinateAxisForVariable is failing and
-         so the data value is being tagged as a CoordinateSystem. Could insist that all variable fail ??
-         */
-
-      // this is the case of a Coordinate System with no references or coordinate transforms
-      // see /testdata2/grid/grib/grib1/data/NOGAPS-Temp-Regional.grib
-      if (!isCoordinateSystem && !isCoordinateTransform && !isCoordinateAxis && coordAxes != null) {
-        // figure out if data or coordSys Variable
-        StringTokenizer stoker = new StringTokenizer(coordAxes);
-        while (stoker.hasMoreTokens()) {
-          String vname = stoker.nextToken();
-          Variable axis = ds.findVariable(vname);
-          if ((axis != null) && !isCoordinateAxisForVariable(axis, ve))
-            isCoordinateSystem = true;
-        }
-      } // */
-    }
-
-    // fakeroo
-    public VarProcess(NetcdfDataset ds) {
-      this.ds = ds;
     }
 
     public boolean isData() {

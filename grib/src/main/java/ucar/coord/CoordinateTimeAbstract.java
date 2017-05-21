@@ -33,10 +33,11 @@
 
 package ucar.coord;
 
-import net.jcip.annotations.Immutable;
 import ucar.nc2.time.CalendarDate;
 import ucar.nc2.time.CalendarDateRange;
 import ucar.nc2.time.CalendarPeriod;
+
+import javax.annotation.concurrent.Immutable;
 
 /**
  * Abstract superclass for time coordinates ( time, timeIntv, time2D)
@@ -76,10 +77,6 @@ public abstract class CoordinateTimeAbstract implements Coordinate {
     return code;
   }
 
-  public CalendarPeriod getPeriod() {
-    return timeUnit;
-  }
-
   @Override
   public String getUnit() {
     return periodName;
@@ -102,8 +99,6 @@ public abstract class CoordinateTimeAbstract implements Coordinate {
   public CalendarDate getRefDate() {
     return refDate;
   }
-
-  public double getTimeUnitScale() { return timeUnit.getValue(); }
 
   public CalendarPeriod getTimeUnit() {
     return timeUnit;

@@ -1,0 +1,61 @@
+if (name != "thredds") {
+    throw new GradleException("This script plugin should only be applied to the root project, not '$name'.")
+}
+
+apply plugin: 'maven-publish'
+apply from: "$rootDir/gradle/any/properties.gradle"  // For Nexus credential properties.
+
+import edu.ucar.build.PublishingUtil
+import org.gradle.api.internal.artifacts.publish.ArchivePublishArtifact
+
+publishing {
+    publications {
+        // Publish all artifacts we've added to the "archives" configuration of the root project. See fatJars.gradle.
+        rootProject.configurations.archives.allArtifacts.each {
+            if (it instanceof ArchivePublishArtifact) {
+                AbstractArchiveTask task = (it as ArchivePublishArtifact).archiveTask
+                
+                "$task.baseName"(MavenPublication) {
+                    artifactId task.baseName
+                    artifact task
+                }
+            }
+        }
+        
+        threddsParent(MavenPublication) {  // Maven BOM publication
+            artifactId 'thredds-parent'
+            
+            pom.withXml{
+                List<Project> publishedProjects = allprojects*.findAll { it.plugins.withType(MavenPublishPlugin) }
+                List<MavenPublication> allPubs = publishedProjects.publishing.publications.flatten()
+                List<MavenPublication> webAndJavaPubs = allPubs.findAll {
+                    // Don't include threddsParent or any of the fatJar pubs in dependencyManagement.
+                    it.name.contains('Web') || it.name.contains('Java')
+                }
+                
+                asNode().append PublishingUtil.createDependencyManagement(webAndJavaPubs)
+            }
+        }
+    }
+}
+
+// Use taskGraph.whenReady() to delay the evaluation of the Nexus credentials for as long as possible.
+// It appears that it can't be deferred until the evaluation phase using Groovy GStrings: it's always done in the
+// execution phase.
+gradle.taskGraph.whenReady { TaskExecutionGraph taskGraph ->
+    // This won't find any publishToMavenLocal tasks. Those are of type PublishToMavenLocal
+    Collection<Task> mavenPublishTasks = taskGraph.allTasks.findAll { it instanceof PublishToMavenRepository }
+    
+    if (!mavenPublishTasks) {
+        return  // We're not running any tasks that publish to a (remote) Maven repo.
+    }
+    
+    Closure nexusCredentials = {
+        username = getPropertyOrFailBuild NEXUS_USERNAME_KEY
+        password = getPropertyOrFailBuild NEXUS_PASSWORD_KEY
+    }
+    
+    mavenPublishTasks.each {
+        it.repository.credentials nexusCredentials
+    }
+}

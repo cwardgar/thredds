@@ -5,6 +5,7 @@ package dap4.core.util;
 
 import dap4.core.dmr.DapDimension;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -13,10 +14,9 @@ import java.util.NoSuchElementException;
  * A classic implementation of an odometer
  * taken from the netcdf-c code.
  * Extended to provide iterator interface
- * Extended to provide contiguous slice info.
  */
 
-public class Odometer implements Iterator<Long>
+public class Odometer implements Iterator<Index>
 {
 
     //////////////////////////////////////////////////
@@ -30,21 +30,46 @@ public class Odometer implements Iterator<Long>
     }
 
     //////////////////////////////////////////////////
-    // factory
+    // factories
 
     static public Odometer
-    factory(List<Slice> slices, List<DapDimension> dimset, boolean usecontiguous)
+    factoryScalar()
+    {
+        return new ScalarOdometer();
+    }
+
+    static public Odometer
+    factory(List<Slice> slices)
             throws DapException
     {
+        return factory(slices, null);
+    }
+
+    static public Odometer
+    factory(List<Slice> slices, List<DapDimension> dimset)
+            throws DapException
+    {
+        // check for scalar case
+        if(dimset != null && dimset.size() == 0) {
+            if(!DapUtil.isScalarSlices(slices))
+                throw new DapException("Cannot build scalar odometer with non-scalar slices");
+            return factoryScalar();
+        }
         boolean multi = false;
-        if(slices != null)
+        if(slices != null) {
             for(int i = 0; i < slices.size(); i++) {
                 if(slices.get(i).getSort() == Slice.Sort.Multi) {
                     multi = true;
                     break;
                 }
             }
-        return multi ? new MultiOdometer(slices, dimset, usecontiguous) : new Odometer(slices, dimset, usecontiguous);
+        }
+        if(slices == null || slices.size() == 0)
+            return factoryScalar();
+        else if(multi)
+            return new MultiOdometer(slices, dimset);
+        else
+            return new Odometer(slices, dimset);
     }
 
     //////////////////////////////////////////////////
@@ -52,17 +77,14 @@ public class Odometer implements Iterator<Long>
 
     protected STATE state = STATE.INITIAL;
 
-    protected int rank = 0;
-    protected Slice[] slices = null;
-    protected DapDimension[] dimset = null;
+    protected boolean ismulti = false;
 
-    // If usecontiguous is true, then iterate
-    // lock the last slice to the value 0.
-    protected boolean usecontiguous = false;
-    protected int contiguousdelta = (usecontiguous?1:0); // offset on place to stop
+    protected int rank = 0;
+    protected List<Slice> slices = null;
+    protected List<DapDimension> dimset = null;
 
     // The current odometer indices
-    protected long[] indices;
+    protected Index index;
 
     // precompute this.slices[i].getLast() - this.slices[i].getStride()
     protected long[] endpoint;
@@ -74,32 +96,33 @@ public class Odometer implements Iterator<Long>
     {
     }
 
-    public Odometer(List<DapDimension> dimset, boolean usecontiguous)
+    public Odometer(List<Slice> set)
             throws DapException
     {
-        this(DapUtil.dimsetSlices(dimset), dimset, usecontiguous);
+        this(set, null);
     }
 
-    public Odometer(List<Slice> set, List<DapDimension> dimset, boolean usecontiguous)
+    public Odometer(List<Slice> set, List<DapDimension> dimset)
             throws DapException
     {
         if(set == null)
             throw new DapException("Null slice list");
-        if(set.size() != dimset.size())
+        if(dimset != null && set.size() != dimset.size())
             throw new DapException("Rank mismatch");
-        this.rank = dimset.size();
+        this.rank = set.size();
         if(this.rank == 0)
             throw new DapException("Rank == 0; use Scalar Odometer");
-        this.slices = set.toArray(new Slice[this.rank]);
-        this.dimset = dimset.toArray(new DapDimension[dimset.size()]);
-        this.indices = new long[this.rank];
-        this.endpoint = new long[this.rank];
-        for(int i = 0; i < this.rank; i++) {
-            DapDimension dim = dimset.get(i);
-            this.dimset[i] = dim;
+        this.slices = new ArrayList<>();
+        this.slices.addAll(set);
+        if(dimset != null) {
+            this.dimset = new ArrayList<>();
+            this.dimset.addAll(dimset);
         }
-        this.usecontiguous = usecontiguous;
-        this.contiguousdelta = (usecontiguous ? 1 : 0);
+        this.endpoint = new long[this.rank];
+        this.index = new Index(rank);
+        for(int i = 0; i < this.rank; i++) {
+            this.index.dimsizes[i] = slices.get(i).getMax();
+        }
         reset();
     }
 
@@ -108,13 +131,12 @@ public class Odometer implements Iterator<Long>
     {
         for(int i = 0; i < this.rank; i++) {
             try {
-                slices[i].setMaxSize(dimset[i].getSize());
-                slices[i].finish();
-                this.indices[i] = this.slices[i].getFirst();
-                this.endpoint[i] = this.slices[i].getLast() - this.slices[i].getStride();
-            } catch (DapException de) {throw new IllegalArgumentException(de);}
-            if(usecontiguous)
-                this.indices[this.rank - 1] = 0;
+                slices.get(i).finish();
+                this.index.indices[i] = this.slices.get(i).getFirst();
+                this.endpoint[i] = this.slices.get(i).getLast() - this.slices.get(i).getStride();
+            } catch (DapException de) {
+                throw new IllegalArgumentException(de);
+            }
         }
     }
 
@@ -124,11 +146,12 @@ public class Odometer implements Iterator<Long>
         for(int i = 0; i < rank; i++) {
             if(i > 0)
                 buf.append(",");
-            buf.append(dimset[i] != null ? dimset[i].getShortName() : "null");
-            buf.append(slices[i].toString());
-            buf.append(String.format("(%d)", this.slices[i].getCount()));
-            if(this.indices != null)
-                buf.append(String.format("@%d", this.indices[i]));
+            if(dimset != null)
+                buf.append(dimset.get(i) != null ? dimset.get(i).getShortName() : "null");
+            buf.append(this.slices.get(i).toString());
+            buf.append(String.format("(%d)", this.slices.get(i).getCount()));
+            if(this.index != null)
+                buf.append(String.format("@%d", this.index.indices[i]));
         }
         return buf.toString();
     }
@@ -137,18 +160,49 @@ public class Odometer implements Iterator<Long>
     // Odometer API
 
     /**
+     * Return odometer rank
+     */
+    public int
+    rank()
+    {
+        return this.rank;
+    }
+
+    /**
+     * Return ith slice
+     */
+    public Slice
+    slice(int i)
+    {
+        if(i < 0 || i >= this.rank)
+            throw new IllegalArgumentException();
+        return this.slices.get(i);
+    }
+
+
+    public List<Slice>
+    getSlices()
+    {
+        return this.slices;
+    }
+
+    /**
      * Compute the linear index
      * from the current odometer indices.
      */
     public long
     index()
     {
-        long offset = 0;
-        for(int i = 0; i < this.rank; i++) {
-            offset *= slices[i].getMaxSize();
-            offset += this.indices[i];
-        }
-        return offset;
+        return index.index();
+    }
+
+    /**
+     * Return current set of indices
+     */
+    public Index
+    indices()
+    {
+        return this.index;
     }
 
     /**
@@ -159,20 +213,9 @@ public class Odometer implements Iterator<Long>
     {
         long size = 1;
         for(int i = 0; i < this.rank; i++) {
-            size *= slices[i].getCount();
+            size *= this.slices.get(i).getCount();
         }
         return size;
-    }
-
-    /**
-     * Get the current set of indices
-     *
-     * @return current set of indices
-     */
-    public long[]
-    getIndices()
-    {
-        return this.indices;
     }
 
     //////////////////////////////////////////////////
@@ -182,14 +225,14 @@ public class Odometer implements Iterator<Long>
     public boolean
     hasNext()
     {
-        int stop = this.rank - contiguousdelta;
+        int stop = this.rank;
         switch (this.state) {
         case INITIAL:
             return true;
         case STARTED:
             int i;
             for(i = stop - 1; i >= 0; i--) { // walk backwards
-                if(this.indices[i] <= this.endpoint[i])
+                if(this.index.indices[i] <= this.endpoint[i])
                     return true;
             }
             this.state = STATE.DONE;
@@ -200,26 +243,18 @@ public class Odometer implements Iterator<Long>
     }
 
     @Override
-    public Long
+    public Index
     next()
     {
         int i;
-        int stop = this.rank - contiguousdelta;
+        int lastpos = this.rank;
+        int firstpos = 0;
         switch (this.state) {
         case INITIAL:
             this.state = STATE.STARTED;
             break;
         case STARTED:
-            // on entry: indices are the last index set
-            // on exit, the indices are the next value
-            for(i = stop - 1; i >= 0; i--) { // walk backwards
-                if(this.indices[i] > this.endpoint[i])
-                    this.indices[i] = this.slices[i].getFirst(); // reset this position
-                else {
-                    this.indices[i] += this.slices[i].getStride();  // move to next indices
-                    break;
-                }
-            }
+            i = step(firstpos, lastpos);
             if(i < 0)
                 this.state = STATE.DONE;
             break;
@@ -228,7 +263,7 @@ public class Odometer implements Iterator<Long>
         }
         if(this.state == STATE.DONE)
             throw new NoSuchElementException();
-        return index();
+        return indices();
     }
 
     @Override
@@ -238,19 +273,38 @@ public class Odometer implements Iterator<Long>
     }
 
     //////////////////////////////////////////////////
-    // Get contiguous slice info. This only applies to
-    // the last slice.
+
+    // on entry: indices are the last index set
+    // on exit, the indices are the next value
+    // return index of place where we have room to step;
+    // return -1 if we have completed.
+    public int
+    step(int firstpos, int lastpos)
+    {
+        for(int i = lastpos - 1; i >= firstpos; i--) { // walk backwards
+            if(this.index.indices[i] > this.endpoint[i])
+                this.index.indices[i] = this.slices.get(i).getFirst(); // reset this position
+            else {
+                this.index.indices[i] += this.slices.get(i).getStride();  // move to next indices
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    public List<Odometer>
+    getSubOdometers()
+    {
+        List<Odometer> list = new ArrayList<>();
+        list.add(this);
+        return list;
+    }
 
     public boolean
-    isContiguous()
+    isMulti()
     {
-        return slices[slices.length - 1].isContiguous();
+        return this.ismulti;
     }
 
-    public List<Slice>
-    getContiguous()
-    {
-        return slices[slices.length - 1].getContiguous();
-    }
 
 }

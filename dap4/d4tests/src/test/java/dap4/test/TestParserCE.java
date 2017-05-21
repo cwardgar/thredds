@@ -5,12 +5,13 @@
 package dap4.test;
 
 
-import dap4.ce.CEConstraint;
-import dap4.ce.CECompiler;
-import dap4.ce.parser.CEParser;
+import dap4.core.ce.CECompiler;
+import dap4.core.ce.CEConstraint;
+import dap4.core.ce.parser.CEParserImpl;
+import dap4.core.dmr.DMRFactory;
 import dap4.core.dmr.DapDataset;
-import dap4.core.dmr.DapFactoryDMR;
 import dap4.core.dmr.parser.Dap4Parser;
+import dap4.core.dmr.parser.Dap4ParserImpl;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -24,9 +25,13 @@ public class TestParserCE extends DapTestCommon
 
     //////////////////////////////////////////////////
     // Constants
+    static final boolean DUMPDMR = false;
     static final boolean DMRPARSEDEBUG = false;
     static final boolean CEPARSEDEBUG = false;
-    static final String TESTCASEDIR = "d4tests/src/test/data/resources/TestParsers"; // relative to dap4 root
+
+    static final String TESTCASEDIR = "src/test/data/resources/TestParsers"; // relative to dap4 root
+
+    static final boolean USEDOM = false;
 
     //////////////////////////////////////////////////
     // Type decls
@@ -77,7 +82,8 @@ public class TestParserCE extends DapTestCommon
 
     //////////////////////////////////////////////////
     @Before
-    public void setup() {
+    public void setup()
+    {
         try {
             defineAllTestCases();
             chooseTestcases();
@@ -93,7 +99,8 @@ public class TestParserCE extends DapTestCommon
     chooseTestcases()
     {
         if(false) {
-            chosentests = locate(8);
+            chosentests = locate(7);
+            assert chosentests.size() > 0 : "Not tests chosen";
         } else {
             for(TestSet tc : alltestsets) {
                 chosentests.add(tc);
@@ -130,6 +137,7 @@ public class TestParserCE extends DapTestCommon
         alltestsets.add(new TestSet(6, CE1_DMR, "/s[0:3][0:2].x;/s[0:3][0:2].y", "/s[0:3][0:2]"));
         alltestsets.add(new TestSet(7, CE1_DMR, "/seq|i1<0", "/seq|i1<0"));
         alltestsets.add(new TestSet(8, CE1_DMR, "/seq|0<i1<10", "/seq|i1>0,i1<10"));
+        alltestsets.add(new TestSet(9, CE2_DMR, "vo[1:1][0,0]", "/vo[1][0,0]"));
     }
 
     //////////////////////////////////////////////////
@@ -155,14 +163,20 @@ public class TestParserCE extends DapTestCommon
 
         System.out.println("Test Set: " + testset.constraint);
 
+        if(DUMPDMR) {
+            visual("DMR:",testset.dmr);
+        }
+
         // Create the DMR tree
         System.out.println("Parsing DMR");
-        Dap4Parser pushparser = new Dap4Parser(new DapFactoryDMR());
+        Dap4Parser parser;
+        if(!USEDOM)
+            parser = new Dap4ParserImpl(new DMRFactory());
         if(DMRPARSEDEBUG)
-            pushparser.setDebugLevel(1);
-        boolean parseok = pushparser.parse(testset.dmr);
+            parser.setDebugLevel(1);
+        boolean parseok = parser.parse(testset.dmr);
         if(parseok)
-            dmr = pushparser.getDMR();
+            dmr = parser.getDMR();
         if(dmr == null)
             parseok = false;
         if(!parseok)
@@ -175,14 +189,14 @@ public class TestParserCE extends DapTestCommon
         CEConstraint ceroot = null;
         System.out.println("constraint: " + testset.constraint);
         System.out.flush();
-        CEParser ceparser = null;
+        CEParserImpl ceparser = null;
         try {
-            ceparser = new CEParser(dmr);
+            ceparser = new CEParserImpl(dmr);
             if(CEPARSEDEBUG)
                 ceparser.setDebugLevel(1);
             parseok = ceparser.parse(testset.constraint);
             CECompiler compiler = new CECompiler();
-            ceroot = compiler.compile(dmr, ceparser.getConstraint());
+            ceroot = compiler.compile(dmr, ceparser.getCEAST());
         } catch (Exception e) {
             e.printStackTrace();
             parseok = false;
@@ -200,7 +214,7 @@ public class TestParserCE extends DapTestCommon
         if(prop_diff) { //compare with baseline
             // Read the baseline file
             String baselinecontent = testset.expected;
-            pass = same(getTitle(),baselinecontent, results);
+            pass = same(getTitle(), baselinecontent, results);
         }
         return pass;
     }
@@ -250,4 +264,17 @@ public class TestParserCE extends DapTestCommon
                     + "  </Sequence>"
                     + "</Dataset>";
 
+
+    String CE2_DMR =
+            "<Dataset"
+                    + "         name=\"ce2\""
+                    + "         dapVersion=\"4.0\""
+                    + "         dmrVersion=\"1.0\""
+                    + "         ns=\"http://xml.opendap.org/ns/DAP/4.0#\">"
+                    + "  <Dimension name=\"d2\" size=\"2\"/>"
+                    + "  <Opaque name=\"vo\">"
+                    + "    <Dim name=\"/d2\"/>"
+                    + "    <Dim name=\"/d2\"/>"
+                    + "  </Opaque>"
+                    + "</Dataset>";
 }

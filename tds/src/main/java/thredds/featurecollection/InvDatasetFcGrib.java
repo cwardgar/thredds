@@ -33,12 +33,13 @@
 
 package thredds.featurecollection;
 
-import net.jcip.annotations.ThreadSafe;
 import thredds.client.catalog.*;
 import thredds.client.catalog.builder.CatalogBuilder;
 import thredds.client.catalog.builder.CatalogRefBuilder;
 import thredds.client.catalog.builder.DatasetBuilder;
-import thredds.inventory.*;
+import thredds.inventory.CollectionSpecParser;
+import thredds.inventory.CollectionUpdateType;
+import thredds.inventory.MFile;
 import thredds.server.catalog.FeatureCollectionRef;
 import ucar.coord.CoordinateRuntime;
 import ucar.nc2.constants.DataFormatType;
@@ -47,13 +48,16 @@ import ucar.nc2.dataset.NetcdfDataset;
 import ucar.nc2.dt.grid.GridCoordSys;
 import ucar.nc2.ft2.coverage.CoverageCollection;
 import ucar.nc2.grib.GdsHorizCoordSys;
-import ucar.nc2.grib.collection.*;
+import ucar.nc2.grib.collection.GribCdmIndex;
+import ucar.nc2.grib.collection.GribCollectionImmutable;
+import ucar.nc2.grib.collection.PartitionCollectionImmutable;
 import ucar.nc2.time.CalendarDate;
 import ucar.nc2.time.CalendarDateRange;
 import ucar.nc2.units.DateRange;
 import ucar.nc2.units.DateType;
 import ucar.unidata.geoloc.LatLonRect;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -85,6 +89,8 @@ import java.util.*;
  */
 @ThreadSafe
 public class InvDatasetFcGrib extends InvDatasetFeatureCollection {
+  private static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(InvDatasetFcGrib.class);
+
   static private final String COLLECTION = "collection";
 
   static private final String BEST_DATASET = GribCollectionImmutable.Type.Best.toString();
@@ -204,7 +210,7 @@ public class InvDatasetFcGrib extends InvDatasetFeatureCollection {
     ThreddsMetadata tmi = result.getInheritableMetadata();  // LOOK should we be allowed to modify this ??
     tmi.set(Dataset.VariableMapLinkURI, makeUriResolved(catURI, makeMetadataLink(tpath, VARIABLES)));
     tmi.set(Dataset.ServiceName, virtualService.getName());
-    tmi.set(Dataset.DataFormatType, fromGc.isGrib1 ? DataFormatType.GRIB1.toString() : DataFormatType.GRIB2.toString());
+    tmi.set(Dataset.DataFormatType, fromGc.isGrib1 ? DataFormatType.GRIB1.getDescription() : DataFormatType.GRIB2.getDescription());
     tmi.set(Dataset.Properties, Property.convertToProperties(fromGc.getGlobalAttributes()));
     tmi.set(Dataset.FeatureType, FeatureType.GRID.toString()); // override GRIB
 

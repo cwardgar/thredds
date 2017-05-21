@@ -34,6 +34,7 @@
 package ucar.httpservices;
 
 import org.apache.http.*;
+import org.apache.http.client.methods.HttpRequestWrapper;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HttpContext;
@@ -56,6 +57,9 @@ abstract public class HTTPUtil
 
     static final public Charset UTF8 = Charset.forName("UTF-8");
     static final public Charset ASCII = Charset.forName("US-ASCII");
+    static final public String LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
+    static final public String UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    static final public String DRIVELETTERS = LOWERCASE + UPPERCASE;
 
     //////////////////////////////////////////////////
 
@@ -90,17 +94,17 @@ abstract public class HTTPUtil
             response = null;
         }
 
-        synchronized HttpRequest getRequest()
+        synchronized public HttpRequest getRequest()
         {
             return this.request;
         }
 
-        synchronized HttpResponse getResponse()
+        synchronized public HttpResponse getResponse()
         {
             return this.response;
         }
 
-        synchronized HttpContext getContext()
+        synchronized public HttpContext getContext()
         {
             return this.context;
         }
@@ -203,7 +207,16 @@ abstract public class HTTPUtil
     //////////////////////////////////////////////////
     // Misc.
 
-    static byte[]
+    static public byte[]
+    readbinaryfile(File f)
+            throws IOException
+    {
+        try (FileInputStream fis = new FileInputStream(f)) {
+            return readbinaryfile(fis);
+        }
+    }
+
+    static public byte[]
     readbinaryfile(InputStream stream)
             throws IOException
     {
@@ -286,15 +299,17 @@ abstract public class HTTPUtil
         StringBuilder buf = new StringBuilder();
         int i = 0;
         while(i < u.length()) {
-            char c = u.charAt(i++);
+            char c = u.charAt(i);
             if(c == '\\') {
                 if(i + 1 == u.length())
                     throw new URISyntaxException(u, "Trailing '\' at end of url");
                 buf.append("%5c");
-                c = u.charAt(i++);
+                i++;
+                c = u.charAt(i);
                 buf.append(String.format("%%%02x", (int) c));
             } else
                 buf.append(c);
+            i++;
         }
         return new URI(buf.toString());
     }
@@ -375,19 +390,16 @@ abstract public class HTTPUtil
                 Header ceheader = entity.getContentEncoding();
                 if(ceheader != null) {
                     String value = ceheader.getValue();
-                    if(value.trim().toLowerCase().endsWith("-endian")) {
-                        int x = 0;//entity.setContentEncoding(new BasicHeader("Content-Encoding","Identity"));
-                    }
                 }
             }
         }
     }
 
-    static protected Map<HTTPSession.Prop,Object>
-    merge(Map<HTTPSession.Prop,Object> globalsettings, Map<HTTPSession.Prop,Object> localsettings)
+    static protected Map<HTTPSession.Prop, Object>
+    merge(Map<HTTPSession.Prop, Object> globalsettings, Map<HTTPSession.Prop, Object> localsettings)
     {
         // merge global and local settings; local overrides global.
-        Map<HTTPSession.Prop,Object> merge = new ConcurrentHashMap<HTTPSession.Prop,Object>();
+        Map<HTTPSession.Prop, Object> merge = new ConcurrentHashMap<HTTPSession.Prop, Object>();
         for(HTTPSession.Prop key : globalsettings.keySet()) {
             merge.put(key, globalsettings.get(key));
         }
@@ -404,7 +416,7 @@ abstract public class HTTPUtil
      * @param s the string to check for length
      * @return null if s.length() == 0, s otherwise
      */
-    static String nullify(String s)
+    static public String nullify(String s)
     {
         if(s != null && s.length() == 0) s = null;
         return s;
@@ -421,18 +433,186 @@ abstract public class HTTPUtil
     }
 
     /**
+     * Join two string together to form proper path
+     * WITHOUT trailing slash
+     *
+     * @param prefix
+     * @param suffix
+     * @return
+     */
+    static public String
+    canonjoin(String prefix, String suffix)
+    {
+        if(prefix == null) prefix = "";
+        if(suffix == null) suffix = "";
+        prefix = HTTPUtil.canonicalpath(prefix);
+        suffix = HTTPUtil.canonicalpath(suffix);
+        StringBuilder result = new StringBuilder();
+        result.append(prefix);
+        int prelen = prefix.length();
+        if(prelen > 0 && result.charAt(prelen - 1) != '/') {
+            result.append('/');
+            prelen++;
+        }
+        if(suffix.length() > 0 && suffix.charAt(0) == '/')
+            result.append(suffix.substring(1));
+        else
+            result.append(suffix);
+        int len = result.length();
+        if(len > 0 && result.charAt(len - 1) == '/') {
+            result.deleteCharAt(len - 1);
+            len--;
+        }
+        return result.toString();
+    }
+
+    /**
      * Convert path to use '/' consistently and
      * to remove any trailing '/'
      *
      * @param path convert this path
      * @return canonicalized version
      */
-    static public String canonicalpath(String path)
+
+    static public String
+    canonicalpath(String path)
     {
         if(path == null) return null;
-        path = path.replace('\\', '/');
-        if(path.endsWith("/"))
-            path = path.substring(0, path.length() - 1);
-        return path;
+        StringBuilder b = new StringBuilder(path);
+        canonicalpath(b);
+        return b.toString();
     }
+
+    static public void
+    canonicalpath(StringBuilder s)
+    {
+        if(s == null || s.length() == 0)
+            return;
+        int index = 0;
+        // "\\" -> "/"
+        for(; ; ) {
+            index = s.indexOf("\\", index);
+            if(index < 0) break;
+            s.replace(index, index + 1, "/");
+        }
+        boolean isabs = (s.charAt(0) == '/'); // remember
+        for(; ; ) { // kill any leading '/'s
+            if(s.length() == 0 || s.charAt(0) != '/') break;
+            s.deleteCharAt(0);
+        }
+        // Do we have drive letter?
+        boolean hasdrive = hasDriveLetter(s);
+
+        if(hasdrive)
+            s.setCharAt(0, Character.toLowerCase(s.charAt(0)));
+
+        while(s.length() > 0 && s.charAt(s.length() - 1) == '/') {
+            s.deleteCharAt(s.length() - 1); // kill any trailing '/'s
+        }
+
+        // Add back leading '/', if any
+        if(!hasdrive && isabs)
+            s.insert(0, '/');
+    }
+
+    /**
+     * Convert path to remove any leading '/' or drive letter assumes canonical.
+     *
+     * @param path convert this path
+     * @return relatived version
+     */
+    static public String relpath(String path)
+    {
+        if(path == null) return null;
+        StringBuilder b = new StringBuilder(path);
+        canonicalpath(b);
+        if(b.length() > 0) {
+            if(b.charAt(0) == '/')
+                b.deleteCharAt(0);
+            if(hasDriveLetter(b))
+                b.delete(0, 2);
+        }
+        return b.toString();
+    }
+
+    /**
+     * @param path to test
+     * @return true if path appears to start with Windows drive letter
+     */
+    static public boolean
+    hasDriveLetter(String path)
+    {
+        return (path != null && path.length() >= 2
+                && path.charAt(1) == ':'
+                && DRIVELETTERS.indexOf(path.charAt(0)) >= 0);
+    }
+
+    // Support function
+    static protected boolean
+    hasDriveLetter(StringBuilder path)
+    {
+        return (path.length() >= 2
+                && path.charAt(1) == ':'
+                && DRIVELETTERS.indexOf(path.charAt(0)) >= 0);
+    }
+
+    /**
+     * @param path to test
+     * @return true if path is absolute
+     */
+    static public boolean
+    isAbsolutePath(String path)
+    {
+        return (path != null && path.length() > 0
+                && (path.charAt(0) == '/' || hasDriveLetter(path)));
+    }
+
+    /**
+     * Convert path to add a  leading '/'; assumes canonical.
+     *
+     * @param path convert this path
+     * @return absolute version
+     */
+    static public String abspath(String path)
+    {
+        if(path == null) return "/";
+        StringBuilder b = new StringBuilder(path);
+        canonicalpath(b);
+        if(b.charAt(0) == '/')
+            b.deleteCharAt(0);
+        if(b.charAt(0) != '/' || !hasDriveLetter(b))
+            b.insert(0, '/');
+        return b.toString();
+    }
+
+    static public String
+    readtextfile(InputStream stream)
+               throws IOException
+    {
+        InputStreamReader rdr = new InputStreamReader(stream, UTF8);
+        return readtextfile(rdr);
+    }
+
+    static public String
+    readtextfile(Reader rdr)
+            throws IOException
+    {
+        StringBuilder buf = new StringBuilder();
+        for(; ; ) {
+            int c = rdr.read();
+            if(c < 0) break;
+            buf.append((char) c);
+        }
+        return buf.toString();
+    }
+
+    static public void
+    writebinaryfile(byte[] content, File dst)
+            throws IOException
+    {
+        FileOutputStream fos = new FileOutputStream(dst);
+        fos.write(content);
+        fos.close();
+    }
+
 }

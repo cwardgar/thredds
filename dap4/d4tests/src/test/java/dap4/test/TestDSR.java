@@ -1,12 +1,23 @@
 package dap4.test;
 
 
+import dap4.core.data.DSPRegistry;
+import dap4.dap4lib.FileDSP;
+import dap4.servlet.DapCache;
+import dap4.servlet.Generator;
+import dap4.servlet.SynDSP;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.test.web.servlet.setup.StandaloneMockMvcBuilder;
+import thredds.server.dap4.Dap4Controller;
 
 /**
- * TestFrontPage verifies the front page
+ * TestDSR verifies the DSR page
  * generation code
  */
 
@@ -17,29 +28,40 @@ public class TestDSR extends DapTestCommon
     //////////////////////////////////////////////////
     // Constants
 
-    static protected String DATADIR = "d4tests/src/test/data"; // relative to dap4 root
-    static protected String TESTDATADIR = DATADIR + "/resources/";
-    static protected String BASELINEDIR = DATADIR + "/resources/TestDSR/baseline";
+    static protected final String RESOURCEPATH = "/src/test/data/resources"; // wrt getTestInputFilesDir
+    static protected final String TESTINPUTDIR = "/testfiles";
+    static protected final String BASELINEDIR = "/TestDSR/baseline";
 
     // constants for Fake Request
     static protected final String FAKEDATASET = "test1";
-    static protected String FAKEURL = "http://localhost:8080/d4ts/" + FAKEDATASET;
+    static protected String FAKEURLPREFIX = "/d4ts";
+    static protected String FAKEURLPATH = FAKEURLPREFIX + "/" + FAKEDATASET;
 
     //////////////////////////////////////////////////
     // Instance variables
 
-    protected String datasetpath = null;
-
-    protected String root = null;
+    //////////////////////////////////////////////////
+    // Instance variables
+    MockMvc mockMvc = null;
+    protected String resourceroot = null;
 
     //////////////////////////////////////////////////
 
     @Before
-    public void setup() throws Exception {
-        this.root = getDAP4Root();
-        if(this.root == null)
-            throw new Exception("dap4 root not found");
-        this.datasetpath = this.root + "/" + DATADIR;
+    public void setup()
+	throws Exception
+    {
+        StandaloneMockMvcBuilder mvcbuilder =
+                MockMvcBuilders.standaloneSetup(new D4TSController());
+        mvcbuilder.setValidator(new TestServlet.NullValidator());
+        this.mockMvc = mvcbuilder.build();
+        testSetup();
+        DapCache.dspregistry.register(FileDSP.class, DSPRegistry.FIRST);
+        DapCache.dspregistry.register(SynDSP.class, DSPRegistry.FIRST);
+        if(prop_ascii)
+            Generator.setASCII(true);
+        this.resourceroot = getResourceRoot();
+//        this.datasetpath = getResourceRoot();
     }
 
     //////////////////////////////////////////////////
@@ -49,28 +71,22 @@ public class TestDSR extends DapTestCommon
     public void testDSR()
         throws Exception
     {
-        boolean pass = true;
-        String url = FAKEURL; // no file specified
+        String url = FAKEURLPATH; // no file specified
 
-        Mocker mocker = new Mocker("d4ts", url, this);
-        byte[] byteresult = null;
+        // Figure out the baseline
+        String baselinepath = canonjoin(this.resourceroot, BASELINEDIR, FAKEDATASET) + ".dsr";
 
-        try {
-            byteresult = mocker.execute();
-        } catch (Throwable t) {
-            t.printStackTrace();
-            throw t;
-        }
+        MvcResult result = perform(url, this.mockMvc, RESOURCEPATH);
+
+        // Collect the output
+        MockHttpServletResponse res = result.getResponse();
+        byte[] byteresult = res.getContentAsByteArray();
 
         // Convert the raw output to a string
-        String dsr =
-                new String(byteresult, UTF8);
+        String dsr = new String(byteresult, UTF8);
 
         if(prop_visual)
             visual("TestDSR", dsr);
-
-        // Figure out the baseline
-        String baselinepath = this.root + "/" + BASELINEDIR + "/" + FAKEDATASET + ".dsr";
 
         if(prop_baseline) {
             writefile(baselinepath, dsr);
@@ -78,31 +94,8 @@ public class TestDSR extends DapTestCommon
             // Read the baseline file
             String baselinecontent = readfile(baselinepath);
             System.out.println("DSR Comparison:");
-            pass = same(getTitle(),baselinecontent, dsr);
-            System.out.println(pass ? "Pass" : "Fail");
+            Assert.assertTrue("***Fail", same(getTitle(), baselinecontent, dsr));
         }
-        Assert.assertTrue(pass);
     }
-
-    //////////////////////////////////////////////////
-    // Utility methods
-
-    //////////////////////////////////////////////////
-    // Stand alone
-
-    static public void
-    main(String[] argv)
-    {
-        try {
-            new TestFrontPage().testFrontPage();
-        } catch (Exception e) {
-            System.err.println("*** FAIL");
-            e.printStackTrace();
-            System.exit(1);
-        }
-        System.err.println("*** PASS");
-        System.exit(0);
-    }// main
-
 }
 

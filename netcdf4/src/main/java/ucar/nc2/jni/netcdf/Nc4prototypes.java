@@ -104,9 +104,12 @@ public interface Nc4prototypes extends Library {
  *  by nc_inq_format. 
  */
   int NC_FORMAT_CLASSIC = (1);
-  int NC_FORMAT_64BIT = (2);
+  int NC_FORMAT_64BIT_OFFSET = (2);
+  int NC_FORMAT_64BIT = (NC_FORMAT_64BIT_OFFSET); // Alias
   int NC_FORMAT_NETCDF4 = (3);
   int NC_FORMAT_NETCDF4_CLASSIC = (4);
+  int NC_FORMAT_64BIT_DATA = (5);
+  int NC_FORMAT_CDF5 = (NC_FORMAT_64BIT_DATA); // alias
 
 /** Extended format specifier returned by  nc_inq_format_extended() 
  *  Added in version 4.3.1. This returns the true format of the
@@ -190,6 +193,7 @@ public interface Nc4prototypes extends Library {
   int nc_inq_nvars(int ncid, IntByReference nvarsp);
   int nc_inq_varids(int ncid, IntByReference nvars, int[] varids);  
   int nc_inq_var(int ncid, int varid, byte[] name, IntByReference xtypep, IntByReference ndimsp, int[] dimidsp, IntByReference nattsp);
+  int nc_inq_var(int ncid, int varid, byte[] name, IntByReference xtypep, IntByReference ndimsp, Pointer dimids, IntByReference nattsp);
 
   // user types
   int nc_inq_typeids(int ncid, IntByReference ntypes, Pointer np); // allow to pass NULL

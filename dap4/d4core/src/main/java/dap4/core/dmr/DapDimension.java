@@ -5,8 +5,8 @@
 package dap4.core.dmr;
 
 /**
- * This class defines a non-Dimensiond Dimension:
- * i.e. one with an atomic type.
+ * This class defines a Dimension:
+ * Modified 10/15/2016 to support zero-sized dimensions.
  */
 
 public class DapDimension extends DapNode implements DapDecl, Cloneable
@@ -15,20 +15,16 @@ public class DapDimension extends DapNode implements DapDecl, Cloneable
     //////////////////////////////////////////////////
     // Constants
 
-    static final public long VARIABLELENGTH = -1;
     static final public long UNDEFINED = -2;
-
-    // Provide a single instance of the variable length dimension.
-    static final public DapDimension VLEN =
-	new DapDimension("*",VARIABLELENGTH);
 
     //////////////////////////////////////////////////
     // Instance variables
 
-    long size = 0;
+    protected long size = UNDEFINED;
 
-    boolean isshared = false;
+    protected boolean isshared = false;
 
+    protected boolean isunlimited = false;
 
     //////////////////////////////////////////////////
     // Constructors
@@ -42,6 +38,7 @@ public class DapDimension extends DapNode implements DapDecl, Cloneable
     {
         this();
         setShortName(name);
+        this.isshared = (name != null);
     }
 
     public DapDimension(String name, long size)
@@ -53,7 +50,7 @@ public class DapDimension extends DapNode implements DapDecl, Cloneable
     public DapDimension(long size)
     {
         setSize(size);
-	this.isshared = false;
+        this.isshared = false;
     }
 
     //////////////////////////////////////////////////
@@ -61,6 +58,8 @@ public class DapDimension extends DapNode implements DapDecl, Cloneable
 
     public long getSize()
     {
+        if(size == UNDEFINED)
+            throw new IllegalStateException("Undefined dimension size");
         return size;
     }
 
@@ -79,9 +78,14 @@ public class DapDimension extends DapNode implements DapDecl, Cloneable
         this.isshared = tf;
     }
 
-    public boolean isVariableLength()
+    public boolean isUnlimited()
     {
-        return size == VARIABLELENGTH;
+        return this.isunlimited;
+    }
+
+    public void setUnlimited(boolean tf)
+    {
+        this.isunlimited = tf;
     }
 
     //////////////////////////////////////////////////
@@ -89,7 +93,11 @@ public class DapDimension extends DapNode implements DapDecl, Cloneable
 
     public Object clone()
     {
-	    try {return super.clone(); } catch (CloneNotSupportedException e) {return null;}
+        try {
+            return super.clone();
+        } catch (CloneNotSupportedException e) {
+            return null;
+        }
     }
 
 
@@ -98,11 +106,10 @@ public class DapDimension extends DapNode implements DapDecl, Cloneable
     public String toString()
     {
         String sortname = (sort == null ? "" : sort.name());
-        //String name = getFQN();
         String name = null;
         if(name == null) name = getShortName();
         if(name == null) name = "";
-        return sortname + "::" + name + "[" +getSize()+ "]";
+        return sortname + "::" + name + "[" + getSize() + "]";
     }
 
 

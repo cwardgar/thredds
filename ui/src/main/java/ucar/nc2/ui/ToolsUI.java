@@ -2120,12 +2120,10 @@ public class ToolsUI extends JPanel {
         public void actionPerformed(ActionEvent e) {
           if (ds != null) {
             try (NetcdfDatasetInfo info = new NetcdfDatasetInfo(ds)) {
-              detailTA.setText(info.writeXML());
-              detailTA.appendLine("----------------------");
               detailTA.appendLine(info.getParseInfo());
               detailTA.gotoTop();
 
-            } catch (IOException e1) {
+            } catch (Exception e1) {
               StringWriter sw = new StringWriter(5000);
               e1.printStackTrace(new PrintWriter(sw));
               detailTA.setText(sw.toString());
@@ -5699,8 +5697,7 @@ public class ToolsUI extends JPanel {
       for (String arg : args) {
         System.out.println(" " + arg);
       }
-
-      HTTPSession.debugHeaders(true);
+      HTTPSession.setInterceptors(true);
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -5747,7 +5744,7 @@ public class ToolsUI extends JPanel {
       for (String arg : args) {
         System.out.println(" " + arg);
       }
-      HTTPSession.debugHeaders(true);
+      HTTPSession.setInterceptors(true);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////

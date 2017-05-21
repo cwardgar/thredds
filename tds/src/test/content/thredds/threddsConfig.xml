@@ -49,14 +49,6 @@
     <maxFileDownloadSize>52428800</maxFileDownloadSize>
   </NetcdfSubsetService>
 
-  <FeatureCollection>
-     <RollingFileAppender>
-       <MaxFileSize>10 MB</MaxFileSize>
-       <MaxBackups>50</MaxBackups>
-       <Level>DEBUG</Level>
-     </RollingFileAppender>
-  </FeatureCollection>
-
   <WCS>
     <allowRemote>false</allowRemote>
     <scour>15 min</scour>
@@ -94,10 +86,24 @@
     <neverUse>true</neverUse>
   </GribIndex>
 
+  <AggregationCache>
+    <dir>/tomcat_home/content/thredds/cache/agg/</dir>
+    <scour>24 hours</scour>
+    <maxAge>90 days</maxAge>
+    <cachePathPolicy>OneDirectory</cachePathPolicy>
+  </AggregationCache>
+
   <ConfigCatalog>
     <reread>check</reread>
     <maxDatasets>1000</maxDatasets>
   </ConfigCatalog>
 
-
+  <Netcdf4Clibrary>
+    <!--
+    <libraryPath>/usr/local/lib</libraryPath>
+    <libraryName>netcdf</libraryName>
+    -->
+    <!-- Test this prop in ThreddsConfigTest.testNetcdf4ClibraryUseForReading() -->
+    <useForReading>false</useForReading>
+  </Netcdf4Clibrary>
 </threddsConfig>

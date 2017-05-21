@@ -1,10 +1,25 @@
 ext.title = "HttpClient Wrappers"
 
+apply from: "$rootDir/gradle/any/dependencies.gradle"
+apply from: "$rootDir/gradle/any/java.gradle"
+apply from: "$rootDir/gradle/any/testing.gradle"
+apply from: "$rootDir/gradle/any/coverage.gradle"
+apply from: "$rootDir/gradle/any/archiving.gradle"
+apply from: "$rootDir/gradle/any/publishing.gradle"
+apply from: "$rootDir/gradle/any/gretty.gradle"
+
 dependencies {
-    compile libraries["jcip-annotations"]
+    compile libraries["jsr305"]
     compile libraries["httpclient"]
     compile libraries["httpcore"]
     compile libraries["httpmime"]
 
     compile libraries["slf4j-api"]
+}
+
+gretty {
+    // We're going to simply use dtswar as an endpoint for our HTTP tests.
+    overlayAndApplyConfigOf ':opendap:dtswar'
+    
+    integrationTestTask = 'test'
 }

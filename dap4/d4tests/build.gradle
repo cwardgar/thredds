@@ -1,41 +1,60 @@
+apply from: "$rootDir/gradle/any/dependencies.gradle"
+apply from: "$rootDir/gradle/any/java.gradle"
+apply from: "$rootDir/gradle/any/testing.gradle"
+apply from: "$rootDir/gradle/any/coverage.gradle"
+// d4tests is not published
+apply from: "$rootDir/gradle/any/gretty.gradle"
+
 dependencies {
-    // A lot of these depedencies should be in the testRuntime config, not testCompile.
+    // A lot of these dependencies should be in the testRuntime config, not testCompile.
 
     testCompile project(':dap4:d4core')
-    testCompile project(':dap4:d4shared')
-    testCompile project(':dap4:d4servletshared')
+    testCompile project(':dap4:d4lib')
+    testCompile project(':dap4:d4servlet')
     testCompile project(':dap4:d4ts')
     testCompile project(':dap4:d4cdm')
     testCompile project(':cdm')
     testCompile project(':httpservices')
-
-    def tdsDep = testCompile project(':tds')
-    configure(tdsDep) {
-        // We don't want tds's logger. We'll provide our own (in testing.gradle).
-        exclude group: 'org.apache.logging.log4j', module: 'log4j-slf4j-impl'
+    
+    testCompile(project(":tds")) {
+        exclude module: "log4j-slf4j-impl"  // We don't want TDS's logger binding.
     }
 
     testCompile libraries["javax.servlet-api"]
-    testCompile libraries["spring-test"]
     testCompile libraries["slf4j-api"]
+
+    // Spring
+    compile libraries["spring-test"]
+    compile libraries["spring-core"]
+    compile libraries["spring-context"]
+    compile libraries["spring-beans"]
+    compile libraries["spring-web"]
+    compile libraries["spring-webmvc"]
+
 }
 
 test {
     systemProperties['testargs'] = System.getProperty("testargs", "")
-
+    
     include 'dap4/test/TestCDMClient.class'
     include 'dap4/test/TestConstraints.class'
-    include 'dap4/test/TestConstraints.class'
+    include 'dap4/test/TestDSP.class'
     include 'dap4/test/TestDSR.class'
-//    include 'dap4/test/TestFilters.class'
-//    include 'dap4/test/TestFrontPage.class'
-//    include 'dap4/test/TestH5Iosp.class'
-//    include 'dap4/test/TestHyrax.class'
     include 'dap4/test/TestNc4Iosp.class'
     include 'dap4/test/TestParserCE.class'
     include 'dap4/test/TestParserDMR.class'
-//    include 'dap4/test/TestPrinter.class'
-//    include 'dap4/test/TestSerial.class'
     include 'dap4/test/TestServlet.class'
     include 'dap4/test/TestServletConstraints.class'
+    include 'dap4/test/TestFrontPage.class'
+    //include 'dap4/test/TestFilters.class'
+    //include 'dap4/test/TestH5Iosp.class'
+    //include 'dap4/test/TestHyrax.class'
+    //include 'dap4/test/TestPrinter.class'
+    //include 'dap4/test/TestSerial.class'
+}
+
+gretty {
+    overlayAndApplyConfigOf ':dap4:d4ts'
+    
+    integrationTestTask = 'test'
 }

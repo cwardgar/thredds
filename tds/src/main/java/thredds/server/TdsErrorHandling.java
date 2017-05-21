@@ -24,8 +24,12 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Formatter;
 import java.util.List;
+
+import static org.springframework.web.util.HtmlUtils.htmlEscape;
 
 /**
  * Global Exception handling
@@ -48,62 +52,77 @@ public class TdsErrorHandling implements HandlerExceptionResolver {
 
   @ExceptionHandler(ServiceNotAllowed.class)
   public ResponseEntity<String> handle(ServiceNotAllowed ex) {
+    logger.warn("TDS Error", ex);
+
     HttpHeaders responseHeaders = new HttpHeaders();
     responseHeaders.setContentType(MediaType.TEXT_PLAIN);
-    return new ResponseEntity<>("Service Not Allowed: " + ex.getMessage(), responseHeaders, HttpStatus.FORBIDDEN);
+    return new ResponseEntity<>("Service Not Allowed: " + htmlEscape(ex.getMessage()), responseHeaders, HttpStatus.FORBIDDEN);
   }
 
   @ExceptionHandler(RequestTooLargeException.class)
   public ResponseEntity<String> handle(RequestTooLargeException ex) {
+    logger.warn("TDS Error", ex);
+
     HttpHeaders responseHeaders = new HttpHeaders();
     responseHeaders.setContentType(MediaType.TEXT_PLAIN);
-    return new ResponseEntity<>("Request Too Large: " + ex.getMessage(), responseHeaders, HttpStatus.FORBIDDEN);
+    return new ResponseEntity<>("Request Too Large: " + htmlEscape(ex.getMessage()), responseHeaders, HttpStatus.FORBIDDEN);
   }
 
   @ExceptionHandler(FileNotFoundException.class)
   public ResponseEntity<String> handle(FileNotFoundException ex) {
+    logger.warn("TDS Error", ex);
+
     HttpHeaders responseHeaders = new HttpHeaders();
     responseHeaders.setContentType(MediaType.TEXT_PLAIN);
-    return new ResponseEntity<>("FileNotFound: " + ex.getMessage(), responseHeaders, HttpStatus.NOT_FOUND);
+    return new ResponseEntity<>("FileNotFound: " + htmlEscape(ex.getMessage()), responseHeaders, HttpStatus.NOT_FOUND);
   }
 
   @ExceptionHandler(IOException.class)
   public ResponseEntity<String> handle(IOException ex) {
     String eName = ex.getClass().getName(); // dont want compile time dependency on ClientAbortException
     if (eName.equals("org.apache.catalina.connector.ClientAbortException")) {
-      logger.debug("ClientAbortException while sending file: {}", ex.getMessage());
+      logger.debug("ClientAbortException while sending file: ", ex);
       return null;
     }
 
-    logger.error("IOException sending file ", ex);
+    logger.warn("TDS Error", ex);
+
     HttpHeaders responseHeaders = new HttpHeaders();
     responseHeaders.setContentType(MediaType.TEXT_PLAIN);
-    return new ResponseEntity<>("IOException sending File " + ex.getMessage(), responseHeaders, HttpStatus.INTERNAL_SERVER_ERROR);
+    return new ResponseEntity<>(
+            "IOException sending File " + htmlEscape(ex.getMessage()), responseHeaders, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
   @ExceptionHandler(IllegalArgumentException.class)
   public ResponseEntity<String> handle(IllegalArgumentException ex) {
+    logger.warn("TDS Error", ex);
+
     HttpHeaders responseHeaders = new HttpHeaders();
     responseHeaders.setContentType(MediaType.TEXT_PLAIN);
     String mess = ex.getMessage();
+
     if (mess != null && mess.startsWith("RequestTooLarge")) // RequestTooLargeException only avail in tds module
-      return new ResponseEntity<>("Request Too Large: " + ex.getMessage(), responseHeaders, HttpStatus.FORBIDDEN);
+      return new ResponseEntity<>("Request Too Large: " + htmlEscape(mess), responseHeaders, HttpStatus.FORBIDDEN);
     else
-      return new ResponseEntity<>("IllegalArgumentException: " + ex.getMessage(), responseHeaders, HttpStatus.BAD_REQUEST);
+      return new ResponseEntity<>("IllegalArgumentException: " + htmlEscape(mess), responseHeaders, HttpStatus.BAD_REQUEST);
   }
 
   @ExceptionHandler(NcssException.class)
   public ResponseEntity<String> handle(NcssException ex) {
+    logger.warn("TDS Error", ex);
+
     HttpHeaders responseHeaders = new HttpHeaders();
     responseHeaders.setContentType(MediaType.TEXT_PLAIN);
-    return new ResponseEntity<>("Invalid Request: " + ex.getMessage(), responseHeaders, HttpStatus.BAD_REQUEST);
+    return new ResponseEntity<>("Invalid Request: " + htmlEscape(ex.getMessage()), responseHeaders, HttpStatus.BAD_REQUEST);
   }
 
   @ExceptionHandler(org.springframework.web.bind.ServletRequestBindingException.class)
   public ResponseEntity<String> handle(org.springframework.web.bind.ServletRequestBindingException ex) {
+    logger.warn("TDS Error", ex);
+
     HttpHeaders responseHeaders = new HttpHeaders();
     responseHeaders.setContentType(MediaType.TEXT_PLAIN);
-    return new ResponseEntity<>("Invalid Request: " + ex.getMessage(), responseHeaders, HttpStatus.BAD_REQUEST);
+    return new ResponseEntity<>("Invalid Request: " + htmlEscape(ex.getMessage()), responseHeaders, HttpStatus.BAD_REQUEST);
   }
 
   @ExceptionHandler(BindException.class)
@@ -115,6 +134,9 @@ public class TdsErrorHandling implements HandlerExceptionResolver {
     for (ObjectError err : errors) {
       f.format(" %s%n", err.getDefaultMessage());
     }
+
+    logger.warn(f.toString(), ex);
+
     HttpHeaders responseHeaders = new HttpHeaders();
     responseHeaders.setContentType(MediaType.TEXT_PLAIN);
     return new ResponseEntity<>(f.toString(), responseHeaders, HttpStatus.BAD_REQUEST);
@@ -136,7 +158,14 @@ public class TdsErrorHandling implements HandlerExceptionResolver {
 
     HttpHeaders responseHeaders = new HttpHeaders();
     responseHeaders.setContentType(MediaType.TEXT_PLAIN);
-    return new ResponseEntity<>("Throwable exception handled : " + ex.getMessage(), responseHeaders, HttpStatus.INTERNAL_SERVER_ERROR);
+    String msg = ex.getMessage();
+      StringWriter sw = new StringWriter();
+      PrintWriter p = new PrintWriter(sw);
+      ex.printStackTrace(p);
+      p.close();
+      sw.close();
+      msg = sw.toString();
+    return new ResponseEntity<>("Throwable exception handled : " + htmlEscape(msg), responseHeaders, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
   /////////////////////////////////////////////

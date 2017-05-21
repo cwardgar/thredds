@@ -132,7 +132,7 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, Closeable 
   static private org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(NetcdfFile.class);
 
   static private int default_buffersize = 8092;
-  static private ArrayList<IOServiceProvider> registeredProviders = new ArrayList<>();
+  static private List<IOServiceProvider> registeredProviders = new ArrayList<>();
   static protected boolean debugSPI = false, debugCompress = false, showRequest = false;
   static boolean debugStructureIterator = false;
   static boolean loadWarnings = false;
@@ -351,6 +351,37 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, Closeable 
   }
 
   /**
+    * Register an IOServiceProvider. A new instance will be created when one of its files is opened.
+    * This differs from the above in that it specifically locates the target iosp and inserts
+    * the new one in front of it in order to override the target.
+    * If the iospclass is already registered, remove it and reinsert.
+    * If the target class is not present, then insert at front of the registry
+    *
+    * @param iospClass Class that implements IOServiceProvider.
+    * @param target Class to override
+    * @throws IllegalAccessException if class is not accessible.
+    * @throws InstantiationException if class doesnt have a no-arg constructor.
+    * @throws ClassCastException     if class doesnt implement IOServiceProvider interface.
+    */
+   static public void registerIOProviderPreferred(Class iospClass, Class target)
+           throws IllegalAccessException, InstantiationException
+   {
+     iospDeRegister(iospClass); // forcibly de-register
+     int pos = -1;
+     for(int i = 0; i < registeredProviders.size(); i++) {
+       IOServiceProvider candidate = registeredProviders.get(i);
+       if(candidate.getClass() == target) {
+         if(pos < i)
+           pos = i;
+         break; // this is where is must be placed
+       }
+     }
+     if(pos < 0) pos = 0;
+     IOServiceProvider spi = (IOServiceProvider) iospClass.newInstance(); // fail fast
+     registeredProviders.add(pos, spi);  // insert before target
+   }
+
+  /**
    * See if a specific IOServiceProvider is registered
    *
    * @param iospClass Class for which to search
@@ -360,6 +391,23 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, Closeable 
       if (spi.getClass() == iospClass) return true;
     }
     return false;
+  }
+
+  /**
+   * See if a specific IOServiceProvider is registered and if so, remove it.
+   *
+   * @param iospClass Class for which to search  and remove
+   * @return true if class was present
+   */
+  static public boolean iospDeRegister(Class iospClass) {
+      for (int i=0;i<registeredProviders.size();i++) {
+        IOServiceProvider spi = registeredProviders.get(i);
+        if (spi.getClass() == iospClass) {
+          registeredProviders.remove(i);
+          return true;
+        }
+      }
+      return false;
   }
 
   /**
@@ -524,19 +572,11 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, Closeable 
     if (iospMessage != null)
       spi.sendIospMessage(iospMessage);
 
-    // get rid of file prefix, if any
-    String uriString = location.trim();
-    if (uriString.startsWith("file://"))
-      uriString = uriString.substring(7);
-    else if (uriString.startsWith("file:"))
-      uriString = uriString.substring(5);
-
-    // get rid of crappy microsnot \ replace with happy /
-    uriString = StringUtil2.replace(uriString, '\\', "/");
-
     if (bufferSize <= 0)
       bufferSize = default_buffersize;
-    ucar.unidata.io.RandomAccessFile raf = ucar.unidata.io.RandomAccessFile.acquire(uriString, bufferSize);
+
+    ucar.unidata.io.RandomAccessFile raf =
+            ucar.unidata.io.RandomAccessFile.acquire(canonicalizeUriString(location), bufferSize);
 
     NetcdfFile result = new NetcdfFile(spi, raf, location, cancelTask);
 
@@ -545,6 +585,25 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, Closeable 
       spi.sendIospMessage(iospMessage);
 
     return result;
+  }
+
+  /**
+   * Removes the {@code "file:"} or {@code "file://"} prefix from the location, if necessary. Also replaces
+   * back slashes with forward slashes.
+   *
+   * @param location  a URI string.
+   * @return  a canonical URI string.
+   */
+  public static String canonicalizeUriString(String location) {
+    // get rid of file prefix, if any
+    String uriString = location.trim();
+    if (uriString.startsWith("file://"))
+      uriString = uriString.substring(7);
+    else if (uriString.startsWith("file:"))
+      uriString = uriString.substring(5);
+
+    // get rid of crappy microsnot \ replace with happy /
+    return StringUtil2.replace(uriString, '\\', "/");
   }
 
   static private ucar.unidata.io.RandomAccessFile getRaf(String location, int buffer_size) throws IOException {
@@ -1211,6 +1270,7 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, Closeable 
    * It may possibly be nested in multiple groups and/or structures.
    * An embedded "." is interpreted as structure.member.
    * An embedded "/" is interpreted as group/group or group/variable.
+   * An embedded "@" is interpreted as variable@attribute
    * If the name actually has a ".", you must escape it (call NetcdfFile.escapeName(varname))
    * Any other chars may also be escaped, as they are removed before testing.
    *
@@ -2360,7 +2420,7 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, Closeable 
 
   // reservedSectionCdl defines the characters that must be escaped
   // when what?
-  static public final String reservedCdl = "[ !\"#$%&'()*,:;<=>?[]^`{|}~.\\";
+  static public final String reservedCdl = "[ !\"#$%&'()*,:;<=>?[]^`{|}~\\";
 
   /**
    * Create a valid CDM object name.

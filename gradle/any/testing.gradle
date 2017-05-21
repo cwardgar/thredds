@@ -1,0 +1,62 @@
+apply plugin: 'java'
+apply from: "$rootDir/gradle/any/properties.gradle"
+
+dependencies {
+    testCompile project(":testUtil")  // Contains stuff like the JUnit @Category classes.
+    testCompile libraries["junit"]
+}
+
+tasks.withType(Test).all {
+    // Propagates system properties set on the Gradle process to the test executors.
+    addFilteredSysProps(systemProperties)
+    
+    if (isJenkins) {
+        ignoreFailures = true   // On Jenkins, don't let test failures abort the build; we want the full test report.
+    } else {
+        ignoreFailures = false  // Otherwise, abort at the first sign of failure.
+    }
+    
+    useJUnit {
+        if (isJenkins) {
+            excludeCategories 'ucar.unidata.util.test.category.NotJenkins'
+        }
+        
+        if (isTravis) {
+            excludeCategories 'ucar.unidata.util.test.category.NotTravis'
+            excludeCategories 'ucar.unidata.util.test.category.NeedsExternalResource'
+        }
+        
+        if (!isContentRootAvailable && !isJenkins) {     // Don't skip tests on Jenkins, except NotJenkins ones.
+            excludeCategories 'ucar.unidata.util.test.category.NeedsContentRoot'
+        }
+        
+        if (!isCdmUnitTestDirAvailable && !isJenkins) {  // Don't skip tests on Jenkins, except NotJenkins ones.
+            excludeCategories 'ucar.unidata.util.test.category.NeedsCdmUnitTest'
+        }
+        
+        if (!isRdaDataAvailable) {
+            excludeCategories 'ucar.unidata.util.test.category.NeedsRdaData'
+        }
+    }
+}
+
+// Add an SLF4J binding to testRuntime, if necessary.
+afterEvaluate {
+    if (testRuntimeHasDepNamed(it, "slf4j-api")) {
+        if (!testRuntimeHasDepNamed(it, "slf4j-jdk14") &&
+            !testRuntimeHasDepNamed(it, "log4j-slf4j-impl")) {
+            logger.info "Using default binding (slf4j-jdk14) to log testing messages in '$it.path'."
+            dependencies.testRuntime libraries["slf4j-jdk14"]
+        }
+    }
+}
+
+boolean testRuntimeHasDepNamed(Project project, String depName) {
+    try {
+        // Groovy truth: empty collections are coerced to false.
+        project.configurations.testRuntime.allDependencies.findAll { it.name == depName }
+    } catch (UnknownConfigurationException e) {  // Project did not have a configuration named 'testRuntime'.
+        logger.debug e.message
+        false
+    }
+}
