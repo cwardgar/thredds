@@ -1,6 +1,4 @@
 import javax.xml.transform.TransformerFactory
-import edu.ucar.build.OpenedFilesListener
-import edu.ucar.build.tasks.FilterOpenedFilesTask
 
 description = """
     TDS - NetCDF-Java library integration Test module. This module contains all classes and settings
@@ -16,7 +14,11 @@ apply from: "$rootDir/gradle/any/java.gradle"
 apply from: "$rootDir/gradle/any/testing.gradle"
 apply from: "$rootDir/gradle/any/coverage.gradle"
 // 'it' is not published
+
+// Order dependency: we need to apply gretty.gradle first so that Gretty's Project.afterEvaluate callback runs
+// before openedFiles.gradle's callback. This may not actually have any effect. See the note in openedFiles.gradle.
 apply from: "$rootDir/gradle/any/gretty.gradle"
+apply from: "$rootDir/gradle/any/openedFiles.gradle"
 
 apply plugin: 'groovy'  // For Spock tests.
 
@@ -59,8 +61,7 @@ dependencies {
 test {
     // isContentRootAvailable, isJenkins, and contentRootKey are defined on the root project in testing.gradle.
     if (!isContentRootAvailable && !isJenkins) {  // Don't skip tests on Jenkins, except NotJenkins ones.
-        logger.warn "Skipping all integration tests (task \'$path\'): " +
-                "\'$contentRootKey\' property not defined."
+        logger.warn "Skipping all integration tests (task '$path'): '$contentRootKey' property not defined."
 
         // We can't stand up a functioning TDS test instance without a valid content root,
         // so disable the task altogether.
@@ -75,6 +76,20 @@ gretty {
     // The normal 'test' task added by the Java plugin has nothing to do in this subproject, because every single
     // test requires a running TDS. Therefore, we're repurposing the 'test' task for integration testing.
     integrationTestTask = 'test'
+}
+
+if (project.reportOnFilesOpenedByTests) {  // Defined in root project.
+    afterEvaluate {
+        tasks.filterFilesOpenedByTests.with {  // Added in any/openedFiles.gradle's afterEvaluate{}.
+            reportOnSourceFiles rootProject.project('tds').sourceSets.main.java.matching {
+                // Most dataset requests go through thredds.core.DatasetManager, but not all.
+                // Could be an interesting instrumentation point though.
+                // include '**/DatasetManager.java'
+                
+                include '**/thredds/server/**/*.java'  // Only report on classes in the 'thredds.server' package.
+            }
+        }
+    }
 }
 
 ////////////////////////////////////// Test fresh TDS installation //////////////////////////////////////
@@ -103,8 +118,7 @@ task "before${taskName.capitalize()}"(type: org.akhikhl.gretty.AppBeforeIntegrat
     gretty.afterEvaluate {
         mustRunAfter tasks.appAfterIntegrationTest  // Make sure the server is shut down before we start it back up!
     }
-
-    debug = false  // Start the embedded sever in debug mode.
+    
     ext.nonExistentContentDir = new File(temporaryDir, "content")
 
     // AppBeforeIntegrationTestTask also has a 'systemProperties' field, but the content of 'gretty.systemProperties'
@@ -149,47 +163,4 @@ check.dependsOn taskName
 task "after${taskName.capitalize()}"(type: org.akhikhl.gretty.AppAfterIntegrationTestTask, group: "gretty") {
     description = "Stops server after $taskName."
     integrationTestTask taskName
-}
-
-/////////////////////////// cdmUnitTest/ opened-files report ///////////////////////////
-
-// Using testAgent configuration and testdataDirKey property, both defined in openedFiles.gradle.
-// ORDER DEPENDENCY: testing.gradle must be applied before this build script.
-
-dependencies {
-    // Embedded test server needs OpenedFilesListener on the classpath.
-    gretty rootProject.files('buildSrc/build/classes/main')
-}
-
-File openedFilesReport = file("${testReportDir}/opened-files-report-server.ser.gz")
-gretty.systemProperties[OpenedFilesListener.REPORT_FILE_KEY] = openedFilesReport
-
-task filterFilesOpenedByTestServer(type: FilterOpenedFilesTask, group: 'Verification') {
-    filter openedFilesReport
-
-    hitsDestFile   = file("${testReportDir}/opened-files-report-server-hits.txt")
-    missesDestFile = file("${testReportDir}/opened-files-report-server-misses.txt")
-
-    if (isCdmUnitTestDirAvailable) {
-        reportOnOpenedFiles fileTree(new File(System.properties[testdataDirKey]))
-    }
-
-    reportOnSourceFiles rootProject.project('tds').sourceSets.main.java.matching {
-        // Most dataset requests go through thredds.core.DatasetManager, but not all.
-        // Could be an interesting instrumentation point though.
-        // include '**/DatasetManager.java'
-
-        include '**/thredds/server/**/*.java'  // Only report on classes in the 'thredds.server' package.
-    }
-
-    openedFilesIgnorePatterns << ~/.+\.jar$/
-    openedFilesIgnorePatterns << ~/.+\.class$/
-}
-
-afterEvaluate {
-    // This task starts the embedded Tomcat server. It's expensive to do.
-    appBeforeIntegrationTest {
-        jvmArgs "-javaagent:${configurations.testAgent.singleFile}=" +
-                "listener=${OpenedFilesListener.name}"  // From :buildSrc
-    }
 }

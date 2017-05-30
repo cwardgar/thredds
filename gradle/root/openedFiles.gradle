@@ -1,0 +1,32 @@
+import edu.ucar.build.tasks.FilterOpenedFilesTask
+
+if (name != "thredds") {
+    throw new GradleException("This script plugin should only be applied to the root project, not '$name'.")
+}
+
+if (!project.reportOnFilesOpenedByTests) {  // Defined in root project.
+    return
+}
+
+gradle.projectsEvaluated {  // We need all subprojects to have been evaluated to grab their FilterOpenedFilesTask tasks.
+    Set<Task> subprojectFilterTasks = subprojects*.tasks*.withType(FilterOpenedFilesTask).flatten()
+    
+    task filterFilesOpenedByAllTests(type: FilterOpenedFilesTask, group: 'Verification') {
+        filter subprojectFilterTasks*.recordsFiles.flatten().findAll { it.exists() }
+        
+        hitsDestFile = file("$buildDir/reports/allTests/opened-files-report-hits.txt")
+        missesDestFile = file("$buildDir/reports/allTests/opened-files-report-misses.txt")
+        
+        if (isCdmUnitTestDirAvailable) {
+            reportOnOpenedFiles fileTree(new File(System.properties[testdataDirKey]))
+        }
+        
+        reportOnSourceFiles subprojectFilterTasks*.sourceFilesToReportOn
+        
+        openedFilesIgnorePatterns << ~/.+\.jar$/
+        openedFilesIgnorePatterns << ~/.+\.class$/
+        
+        openedFilesIgnorePatterns << ~/.+\.gbx9$/
+        openedFilesIgnorePatterns << ~/.+\.ncx4$/
+    }
+}

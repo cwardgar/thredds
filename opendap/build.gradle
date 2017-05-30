@@ -11,7 +11,11 @@ apply from: "$rootDir/gradle/any/testing.gradle"
 apply from: "$rootDir/gradle/any/coverage.gradle"
 apply from: "$rootDir/gradle/any/archiving.gradle"
 apply from: "$rootDir/gradle/any/publishing.gradle"
+
+// Order dependency: we need to apply gretty.gradle first so that Gretty's Project.afterEvaluate callback runs
+// before openedFiles.gradle's callback. This may not actually have any effect. See the note in openedFiles.gradle.
 apply from: "$rootDir/gradle/any/gretty.gradle"
+apply from: "$rootDir/gradle/any/openedFiles.gradle"
 
 dependencies {
     compile project(':cdm')

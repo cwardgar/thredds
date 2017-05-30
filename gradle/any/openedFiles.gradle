@@ -1,0 +1,117 @@
+import edu.ucar.build.GradleUtils
+import edu.ucar.build.OpenedFilesListener
+import edu.ucar.build.tasks.FilterOpenedFilesTask
+
+if (!project.reportOnFilesOpenedByTests) {  // Defined in root project.
+    return
+}
+
+// Below, we query which plugins have been applied. Furthermore, we examine SourceSets, which a project could create
+// at any time. Therefore, we must delay this config until AFTER evaluation.
+afterEvaluate {
+    configurations {
+        testAgent { transitive = false } // See note below.
+    }
+    
+    boolean isGrettyPluginApplied = project.extensions.findByName('gretty')
+
+    dependencies {
+        // We want to instrument the Gradle test executor JVM with file-leak-detector. We do this by using
+        // the -javaagent switch (see https://docs.oracle.com/javase/8/docs/api/java/lang/instrument/
+        // package-summary.html#package.description). The switch requires that the agent and its dependencies
+        // be contained within a single jar.
+        //
+        // Luckily, a fat jar is available on Maven Central. We add it to its own configuration (testAgent)
+        // that is NON-transitive. Non-transitivity is important because the Gradle dependency machinery is
+        // processing the regular (and only) file-leak-detector POM. That POM assumes usage of the skinny jar
+        // and declares dependencies that we don't need because they're already packaged in the fat jar.
+        testAgent libraries["file-leak-detector-fatJar"]
+
+        // Add the classes from :buildSrc to the testRuntime classpath. Specifically, we need to make
+        // edu.ucar.build.OpenedFileList available to the test JVM. Given that the output of :buildSrc is
+        // implicitly added to the buildscript classpaths of other subprojects, you'd think there'd be a less
+        // kludgy way to accomplish this, but apparently not: http://stackoverflow.com/questions/22633813.
+        // In any event, :buildSrc:assemble is guaranteed to have run by this point in the build, so the
+        // addition is safe.
+        testRuntime rootProject.files('buildSrc/build/classes/main')
+        
+        if (isGrettyPluginApplied) {
+            // Embedded test server needs OpenedFilesListener on the classpath.
+            gretty rootProject.files('buildSrc/build/classes/main')
+        }
+    }
+    
+    Set<Task> tasksThatMightReadTestData = tasks.matching {
+        if (GradleUtils.instanceOf(it, Test)) {
+            return true
+        }
+        if (isGrettyPluginApplied) {
+            // Gretty adds "appBeforeIntegrationTest" in a Project.afterEvaluate{}. We're only able to see it here
+            // because the afterEvaluate{} we're in now executes AFTER the Gretty one. I was only able to determine
+            // that via a debugger; the order is NOT specified in the docs (see https://goo.gl/LrPNKf).
+            //
+            // Intuitively, we'd need to apply "gretty.gradle" to a project before "openedFiles.gradle", so that
+            // Gretty's afterEvaluate callback could be queued before this one, and therefore run first.
+            // However, that doesn't seem to be the case EXCEPT for :httpservices. I honestly have no idea how the
+            // order is determined and given that it's undocumented, I've decided to add an assertion here to alert us
+            // to any future changes.
+            assert tasks.findByName("appBeforeIntegrationTest") : "GrettyPlugin.afterProjectEvaluate() hasn't run yet!"
+            
+            if (GradleUtils.instanceOf(it, "org.akhikhl.gretty.AppBeforeIntegrationTestTask")) {
+                return true
+            }
+        }
+        return false
+    }
+    
+    List<File> openedFilesReports = []
+    
+    tasksThatMightReadTestData.all {
+        // Test extends JavaForkOptions, which has the 'systemProperty' and 'jvmArgs' methods.
+        // AppBeforeIntegrationTestTask extends AppStartTask, which delegates to ServerConfig. It is ServerConfig
+        // that has the 'systemProperty' and 'jvmArgs' methods.
+        //
+        // So, we're calling the same methods on two different types of tasks that don't even implement the same
+        // class. That's pretty brittle, but the alternative would require a bunch of code duplication and an
+        // unwanted mingling of concerns.
+    
+        openedFilesReports << file("$testReportDir/opened-files-report-${it.name}.ser.gz")
+        outputs.file openedFilesReports.last()
+        systemProperty OpenedFilesListener.REPORT_FILE_KEY, openedFilesReports.last()
+
+        // Delay resolution of testAgent configuration until execution phase. This avoids the error:
+        // "Cannot change dependencies of configuration $name after it has been resolved" in
+        // dependencies.gradle.
+        doFirst {
+            // set arguments for the test executor JVM.
+            jvmArgs "-javaagent:${configurations.testAgent.singleFile}=" +
+                    "listener=${OpenedFilesListener.name}"  // From :buildSrc
+        }
+    }
+
+    task filterFilesOpenedByTests(type: FilterOpenedFilesTask, group: 'Verification') {
+        filter openedFilesReports.findAll { it.exists() }
+
+        hitsDestFile = file("$testReportDir/opened-files-report-hits.txt")
+        missesDestFile = file("$testReportDir/opened-files-report-misses.txt")
+
+        if (isCdmUnitTestDirAvailable) {  // Defined in root/testing.gradle.
+            reportOnOpenedFiles fileTree(new File(System.properties[testdataDirKey]))
+        }
+        
+        // Report on sources and resources of SourceSets with "test" in their names.
+        sourceSets.matching { it.name.toLowerCase().contains("test") }.each {
+            if (plugins.hasPlugin('java')) {
+                reportOnSourceFiles it.allJava
+            }
+            if (plugins.hasPlugin('groovy')) {
+                reportOnSourceFiles it.allGroovy
+            }
+            
+            reportOnOpenedFiles fileTree(it.output.resourcesDir)
+        }
+
+        openedFilesIgnorePatterns << ~/.+\.jar$/
+        openedFilesIgnorePatterns << ~/.+\.class$/
+    }
+}

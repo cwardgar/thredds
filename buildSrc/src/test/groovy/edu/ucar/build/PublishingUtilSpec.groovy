@@ -18,7 +18,7 @@ import spock.lang.Specification
  * @author cwardgar
  * @since 2016-01-16
  */
-class PublishingUtilTest extends Specification {
+class PublishingUtilSpec extends Specification {
     def "createDependencyManagement() on multi-module project"() {
         setup: "Build a test Project using ProjectBuilder"
         Project rootProject = setupTestProject()

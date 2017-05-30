@@ -5,6 +5,7 @@ ext.title = "Test CDM (upc/share - Unidata only)"
 apply from: "$rootDir/gradle/any/dependencies.gradle"
 apply from: "$rootDir/gradle/any/java.gradle"
 apply from: "$rootDir/gradle/any/testing.gradle"
+apply from: "$rootDir/gradle/any/openedFiles.gradle"
 apply from: "$rootDir/gradle/any/coverage.gradle"
 // cdm-test is not published
 

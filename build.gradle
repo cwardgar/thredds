@@ -64,18 +64,25 @@ ext {
 
     SimpleDateFormat iso_8601_format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ")
     buildTimestamp = iso_8601_format.format(new Date())
+    
+    // If true, generate a report of all the files opened by Gradle Test tasks and Gretty AppBeforeIntegrationTest
+    // tasks. It does so by passing OpenedFilesListener as a Java Agent to their associated JVMs. In addition,
+    // this flag toggles the creation of FilterOpenedFilesTask tasks, which process the output of OpenedFilesListener.
+    //
+    // We don't want this enabled all the time because it imposes a performance penalty. Also, it can cause failures
+    // in tests that are concurrency-sensitive, probably because those tests--or the code their testing--is buggy.
+    reportOnFilesOpenedByTests = true
 }
 
 apply from: "$rootDir/gradle/root/testing.gradle"
 apply from: "$rootDir/gradle/root/coverage.gradle"
 apply from: "$rootDir/gradle/root/fatJars.gradle"
-apply from: "$rootDir/gradle/root/publishing.gradle" // Creates pubs for artifacts created in fatJars.gradle
+apply from: "$rootDir/gradle/root/publishing.gradle"  // Creates pubs for artifacts created in fatJars.gradle
 apply from: "$rootDir/gradle/root/sonarqube.gradle"
 apply from: "$rootDir/gradle/root/license.gradle"
+apply from: "$rootDir/gradle/root/openedFiles.gradle"
 
-apply from: "$rootDir/gradle/any/coverage.gradle"    // Modifies Test task from root/testing.gradle and
-                                                     // JacocoReport task from root/coverage.gradle
-apply from: "$rootDir/gradle/any/archiving.gradle"   // Modifies Jar tasks created in fatJars.gradle
-apply from: "$rootDir/gradle/any/publishing.gradle"  // Modifies pubs created in root/publishing.gradle
-
-apply from: "$rootDir/gradle/openedFiles.gradle"  // Order dependency: uses configuration from testing.gradle.
+apply from: "$rootDir/gradle/any/coverage.gradle"     // Modifies Test task from root/testing.gradle and
+                                                      // JacocoReport task from root/coverage.gradle
+apply from: "$rootDir/gradle/any/archiving.gradle"    // Modifies Jar tasks created in fatJars.gradle
+apply from: "$rootDir/gradle/any/publishing.gradle"   // Modifies pubs created in root/publishing.gradle

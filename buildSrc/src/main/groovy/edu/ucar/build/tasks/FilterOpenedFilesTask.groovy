@@ -12,7 +12,7 @@ import java.util.regex.Pattern
 import java.util.zip.GZIPInputStream
 
 /**
- *
+ * Filters the output of {@link edu.ucar.build.OpenedFilesListener}.
  *
  * @author cwardgar
  * @since 2016-04-01
@@ -146,8 +146,9 @@ class FilterOpenedFilesTask extends DefaultTask {
      * @param sourceFiles  Java and Groovy source code files.
      */
     static Set<String> getFullyQualifiedClassNames(FileCollection sourceFiles) {
-        Pattern srcFilePathPattern = ~'.*/src/(main|test)/(java|groovy)/(.*)'
-        Set<String> classNames = new TreeSet<>();
+        // See https://stackoverflow.com/questions/6863518 for the meaning of "(?:foo|bar)".
+        Pattern srcFilePathPattern = ~'.*/src/\\w+/(?:java|groovy)/(.*)'
+        Set<String> classNames = new TreeSet<>()
 
         sourceFiles.files.each {
             // Convert to forward slashes to make regex easier to use.
@@ -157,7 +158,7 @@ class FilterOpenedFilesTask extends DefaultTask {
             Matcher matcher = absolutePath =~ srcFilePathPattern
             if (matcher.matches()) {
                 // e.g. "ucar/ma2/ArrayTest.java"
-                String srcFileRelPath = matcher.group(3);
+                String srcFileRelPath = matcher.group(1)
 
                 // e.g. "ucar/ma2/ArrayTest"
                 String srcFileRelPathNoExt = FilenameUtils.removeExtension(srcFileRelPath)
@@ -192,7 +193,7 @@ class FilterOpenedFilesTask extends DefaultTask {
                 // For example, if className=='TestDir' and stackFrame.className=='TestDir$Act', we have a match and
                 // that frame will be returned.
                 if (stackFrame.className.startsWith(className)) {
-                    return stackFrame;
+                    return stackFrame
                 }
             }
         }
